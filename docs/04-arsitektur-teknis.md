@@ -4,7 +4,7 @@ Aturan bisnis yang diimplementasikan di sini didefinisikan di [01](01-alur-dan-a
 
 ## 1. Keputusan Platform
 
-**MVP berupa web mobile-first yang bisa dipasang sebagai PWA**, ditambah panel admin di aplikasi yang sama (`/admin`, desktop-first).
+**MVP berupa web responsif (mobile-first) yang bisa dipasang sebagai PWA di HP maupun PC**, ditambah panel admin di aplikasi yang sama (`/admin`, desktop-first). Satu basis kode melayani HP, tablet, dan desktop; tata letak per ukuran layar ada di [03](03-panduan-ux-ui.md) bagian 2.1.
 
 Alasan: satu basis kode, rilis tanpa proses toko aplikasi, tautan mudah dibagikan. Batasan yang diterima:
 - Web push di iOS hanya berjalan bila PWA dipasang ke Home Screen (iOS 16.4+). Karena itu **Telegram bot adalah kanal utama** untuk notifikasi kritis.
@@ -308,7 +308,7 @@ Dipanggil tiap menit oleh `pg_cron`. Semua job **idempoten** (aman dijalankan ul
 | `expire-payments` | `DISETUJUI` lewat `pay_by` → `KADALUARSA` |
 | `stale-start` | 24 jam setelah `start_at`: `MENUNGGU_VERIFIKASI` → `DIBATALKAN` + refund; `DIBAYAR` tanpa serah terima & tanpa laporan tidak hadir → `DIBATALKAN` + refund penuh |
 | `close-review-window` | `DIKEMBALIKAN` lewat `review_ends_at` → `PENCAIRAN_DIPROSES` + buat tugas |
-| `overdue-returns` | Kirim notifikasi telat; > 72 jam → `SENGKETA` (hilang) |
+| `overdue-returns` | Kirim notifikasi telat; > 72 jam setelah jatuh tempo → `SENGKETA` (hilang), kecuali ada laporan "pemilik tidak datang" saat pengembalian yang diterima → hitung 72 jam dari laporan, kategori `tidak_hadir` (A-3.5, A-3.7) |
 | `no-show-timeouts` | Laporan tidak hadir tanpa bantahan 12 jam → terapkan A-3.5 |
 | `release-claims` | Tugas `diklaim` lewat `claimed_until` → `menunggu` |
 | `sla-flags` | Tandai & beri tahu admin untuk antrean yang lewat target |
@@ -331,7 +331,7 @@ Dipanggil tiap menit oleh `pg_cron`. Semua job **idempoten** (aman dijalankan ul
   - Ledger: setiap jurnal seimbang; invarian di bagian 4.4.
   - Settings: perubahan nilai tidak memengaruhi transaksi yang sudah punya `rules_snapshot`.
   - Otorisasi: pengguna tidak bisa mengakses transaksi/percakapan orang lain.
-  - E2E (Playwright): alur lengkap ajukan → bayar → verifikasi → serah terima → kembali → pencairan → rating.
+  - E2E (Playwright): alur lengkap ajukan → bayar → verifikasi → serah terima → kembali → pencairan → rating, dijalankan di dua viewport: HP (390 × 844, emulasi iPhone/Android) dan desktop (1440 × 900).
 - Seed: satu kampus, titik serah terima, kategori, settings default, satu super admin.
 
 ## 9. Observability

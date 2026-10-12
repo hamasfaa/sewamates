@@ -58,7 +58,7 @@ Semua aturan dan angka merujuk ke [01 – Alur & Aturan Sistem](01-alur-dan-atur
 
 ### F1 Login & registrasi
 **Sebagai** mahasiswa, **saya ingin** masuk tanpa password **agar** cepat dan langsung terhubung ke notifikasi.
-- Halaman login: satu tombol "Masuk dengan Telegram" + angka pencocokan 2 digit + keterangan "Belum punya Telegram? Unduh di sini".
+- Halaman login: satu tombol "Masuk dengan Telegram" + angka pencocokan 2 digit + keterangan "Belum punya Telegram? Unduh di sini". Di PC juga tampil QR code deep link agar login bisa diselesaikan dari Telegram di HP.
 - Tombol membuka Telegram (aplikasi di HP, atau Telegram Web di desktop) ke bot SewaMates dengan token login (alur A-3.1).
 - Pertama kali: bot meminta "Bagikan nomor HP" (tombol kontak); setelah itu pengguna memilih angka pencocokan.
 - Web memantau status login (polling 2 detik) dan langsung masuk setelah disetujui; tampil pesan bila token kedaluwarsa dengan tombol "Coba lagi".
@@ -116,6 +116,7 @@ Semua aturan dan angka merujuk ke [01 – Alur & Aturan Sistem](01-alur-dan-atur
 ### F8 Pembayaran manual
 - Halaman bayar: tagihan (dengan kode unik disorot dan keterangan "termasuk deposit, akan dikembalikan"), pilihan rekening platform aktif (tombol salin nomor dan nominal), jam operasional admin, hitung mundur batas bayar.
 - Unggah bukti (JPEG/PNG/PDF, maks 5 MB) + rekening tujuan yang dipakai + nama pengirim + waktu transfer + nominal yang ditransfer; boleh menambah bukti berikutnya.
+- Halaman bayar menampilkan **kode transaksi** dengan tombol salin dan ajakan menuliskannya di berita transfer (A-3.4).
 - Status `Menunggu verifikasi` dengan estimasi: "Diverifikasi maks 2 jam" atau "Diverifikasi paling lambat 10.00" di luar jam operasional. Tombol batal disembunyikan selama menunggu verifikasi (A-2.2).
 - Hasil verifikasi per bukti tampil di halaman bayar: diterima (nominal) / ditolak (alasan).
 - Kurang bayar → kembali ke `Menunggu pembayaran` dengan **sisa kekurangan** dan batas bayar baru; lunas → status `Siap serah terima`, pemilik menerima notifikasi "Pembayaran sudah diterima platform".
@@ -134,6 +135,7 @@ Semua aturan dan angka merujuk ke [01 – Alur & Aturan Sistem](01-alur-dan-atur
 
 ### F10 Serah terima & pengembalian
 - Layar dipandu langkah demi langkah sesuai A-3.5: "Saya sudah sampai" → foto → kode/QR → selesai.
+- Hanya tersedia di HP. Di PC (≥ 1024 px) tombol langkah ini diganti panel "Lanjutkan di HP" berisi QR code ke halaman transaksi yang sama.
 - Kamera dalam app (`getUserMedia`) untuk foto kondisi; jika tidak didukung, fallback ke pemilih file dan foto diberi tanda "dari galeri" untuk admin.
 - Waktu foto memakai waktu server saat diunggah.
 - Kode 6 digit berlaku hanya untuk transaksi tersebut; salah 5 kali → dikunci 15 menit.
@@ -211,5 +213,6 @@ Semua aturan dan angka merujuk ke [01 – Alur & Aturan Sistem](01-alur-dan-atur
 - **Keamanan & privasi**: lihat [04](04-arsitektur-teknis.md) bagian Keamanan.
 - **Aksesibilitas**: kontras teks WCAG AA, target sentuh ≥ 44 px, semua input berlabel.
 - **Bahasa**: Bahasa Indonesia santai-sopan ([03](03-panduan-ux-ui.md)).
-- **Perangkat & browser**: layar ≥ 360 px; Chrome Android (2 versi terakhir), Safari iOS 16.4+ (web push butuh PWA terpasang); panel admin di Chrome/Edge desktop.
+- **Perangkat & browser**: aplikasi pengguna responsif dari 360 px sampai desktop (tata letak di [03](03-panduan-ux-ui.md) bagian 2.1). HP: Chrome Android dan Safari iOS 16.4+ (web push iOS butuh PWA terpasang). PC: Chrome, Edge, Firefox, Safari macOS (2 versi terakhir). Panel admin: Chrome/Edge desktop ≥ 1280 px.
+- **Serah terima & pengembalian** (F10) hanya dari HP; di PC tampil QR code "Lanjutkan di HP". Semua fitur pengguna lain tersedia penuh di PC.
 - **Jaringan buruk**: unggahan foto bisa diulang tanpa mengulang langkah; formulir panjang (listing) menyimpan draf lokal.

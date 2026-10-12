@@ -125,7 +125,8 @@ Catatan:
 - Saat disetujui, sistem menetapkan:
   - **Tagihan** = total sewa + deposit + **kode unik** (1–999, unik di antara transaksi `DISETUJUI`/`MENUNGGU_VERIFIKASI` yang aktif; bila 999 kode habis terpakai, persetujuan baru ditunda dengan pesan galat). Kode unik **dihitung sebagai bagian deposit** dan ikut dikembalikan.
   - **Batas bayar** = **min(6 jam ⚙ sejak disetujui, jadwal mulai − 3 jam ⚙)**.
-- Penyewa memilih satu rekening tujuan dari `platform_accounts` aktif (mis. Mandiri, BCA, OVO), transfer, lalu mengunggah bukti + nama pengirim + waktu transfer. Bukti boleh diunggah lebih dari sekali (mis. transfer kurang lalu menambah).
+- Penyewa memilih satu rekening tujuan dari `platform_accounts` aktif (mis. Mandiri, BCA, OVO), transfer, lalu mengunggah bukti + rekening tujuan + nominal + nama pengirim + waktu transfer. Bukti boleh diunggah lebih dari sekali (mis. transfer kurang lalu menambah).
+- Penyewa diminta menulis **kode transaksi** (`public_code`, mis. `SM-2610-00123`) di berita/catatan transfer bila metode mendukung; admin mencocokkan dengan kode unik **dan** kode transaksi, karena kode unik bisa dipakai ulang setelah transaksi selesai.
 - Bukti diunggah sebelum batas bayar → transaksi tidak kedaluwarsa selama menunggu admin.
 - Admin mencocokkan **setiap bukti** dengan **mutasi rekening asli** (bukan hanya screenshot):
   - Dana ditemukan → bukti **diterima** dengan nominal yang benar-benar masuk (boleh berbeda dari yang ditulis penyewa). Setiap bukti diterima langsung dicatat di ledger.
@@ -150,7 +151,7 @@ Catatan:
   - Pemilik tidak datang (serah terima) → `DIBATALKAN`, refund penuh ke penyewa, strike pemilik.
   - Penyewa tidak datang (serah terima) → pembatalan mendadak oleh penyewa (A-3.6) + strike penyewa.
   - Penyewa tidak datang (pengembalian) → dihitung sebagai keterlambatan (A-3.7).
-  - Pemilik tidak datang (pengembalian) → denda telat berhenti dihitung sejak waktu penyewa menekan "Saya sudah sampai"; kedua pihak diminta menjadwalkan ulang pengembalian lewat chat.
+  - Pemilik tidak datang (pengembalian) → denda telat berhenti dihitung sejak waktu penyewa menekan "Saya sudah sampai", dan sengketa otomatis "hilang" (A-3.7) **tidak berlaku**; kedua pihak diminta menjadwalkan ulang pengembalian lewat chat. Bila 72 jam ⚙ setelah laporan barang belum juga kembali → `SENGKETA` kategori `tidak_hadir`.
 - **Tidak ada yang hadir**: 24 jam ⚙ setelah jadwal mulai tanpa serah terima dan tanpa laporan tidak hadir → `DIBATALKAN`, refund penuh ke penyewa, tanpa strike.
 
 ### 3.6 Pembagian dana saat transaksi batal
@@ -174,7 +175,7 @@ Biaya batal = 20% ⚙ dari total sewa. Contoh (sewa Rp60.000, dana diterima Rp16
 - `waktu_kembali` = waktu kode pengembalian cocok, atau waktu penyewa menekan "Saya sudah sampai" bila pemilik dilaporkan tidak hadir saat pengembalian (A-3.5).
 - Dihitung otomatis saat transaksi menjadi `DIKEMBALIKAN` dan dipotong dari deposit (tidak termasuk kode unik). Denda yang melebihi deposit dibatasi sebesar deposit; sisanya di luar sistem.
 - Penyewa yang terlambat melewati toleransi mendapat strike.
-- Belum dikembalikan **72 jam** ⚙ setelah jatuh tempo → otomatis `SENGKETA` kategori `hilang`; admin dan kedua pihak diberi notifikasi.
+- Belum dikembalikan **72 jam** ⚙ setelah jatuh tempo → otomatis `SENGKETA` kategori `hilang`; admin dan kedua pihak diberi notifikasi. Pengecualian: ada laporan "pemilik tidak datang" saat pengembalian yang diterima (A-3.5).
 
 ### 3.8 Keuangan
 - **Komisi platform 10%** ⚙ dari total sewa (bukan deposit), dipotong dari bagian pemilik. Pembulatan: komisi dibulatkan ke rupiah terdekat (setengah ke atas).

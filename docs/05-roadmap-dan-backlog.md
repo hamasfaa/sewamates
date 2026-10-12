@@ -15,12 +15,13 @@ Beberapa dependensi eksternal butuh waktu persetujuan, jadi harus diurus sebelum
 | Data rekening/e-wallet platform (Mandiri, BCA, OVO, …) | `platform_accounts` | Diisi super admin, bukan di kode |
 | Data titik serah terima + jam operasional, daftar kategori | Seed | – |
 | Teks S&K dan kebijakan privasi | Halaman statis | Konten dari pemilik bisnis |
+| Logo SewaMates + turunan ikon ([03](03-panduan-ux-ui.md) bagian 7.8) | PWA, favicon, pratinjau tautan, foto bot | Wordmark sementara boleh dipakai sampai logo final siap; logo final wajib ada sebelum Sprint 6 |
 
 ## 2. Fase
 
 | Fase | Durasi | Keluaran |
 |------|--------|----------|
-| Desain | 2 minggu (paralel Sprint 1) | Figma layar kunci ([03](03-panduan-ux-ui.md)) + design token |
+| Desain | 2 minggu (paralel Sprint 1) | Figma layar kunci versi **HP dan PC** ([03](03-panduan-ux-ui.md) bagian 2.1 & 3), design token (bagian 7), logo |
 | Sprint 1 – Fondasi | 2 minggu | Repo, CI, auth, profil, verifikasi, kerangka admin |
 | Sprint 2 – Marketplace | 2 minggu | Listing, moderasi, pencarian, detail |
 | Sprint 3 – Transaksi I | 2 minggu | Pengajuan, pembayaran manual, chat, notifikasi Telegram, job |
@@ -38,6 +39,8 @@ ID fitur merujuk ke [02](02-prd-fitur-mvp.md); aturan ke [01](01-alur-dan-aturan
 
 **Sprint 1 – Fondasi**
 - Setup repo, struktur folder ([04](04-arsitektur-teknis.md) bagian 3), lint/typecheck, CI, Sentry, deploy staging.
+- Design token (CSS variable + Tailwind + tema shadcn/ui, [03](03-panduan-ux-ui.md) bagian 7.9), font Plus Jakarta Sans via `next/font`, komponen dasar (tombol, input, chip status, kartu).
+- Kerangka layout responsif: navigasi bawah (HP) dan navigasi atas (PC ≥ 1024 px), kontainer maks 1200 px.
 - Migrasi awal: `campuses`, `users`, `identity_verifications`, `payout_accounts`, `settings`, `admin_audit_logs`, `notifications`, `sessions`, `login_requests`, `action_confirmations`, `telegram_updates`; seed.
 - Infrastruktur job (`pg_cron` → `/api/internal/jobs`) + job `expire-login-requests`.
 - F18 kerangka bot Telegram (webhook, dedup update, `/start`, bagikan kontak, angka pencocokan, tombol konfirmasi aksi).
@@ -68,7 +71,7 @@ ID fitur merujuk ke [02](02-prd-fitur-mvp.md); aturan ke [01](01-alur-dan-aturan
 
 **Sprint 4 – Transaksi II**
 - Migrasi: `handover_records`, `handover_photos`, `reschedule_requests`, `no_show_reports`, `payout_tasks`, `cash_movements`, `strikes`, `disputes`, `dispute_evidence`.
-- F10 serah terima & pengembalian (kamera, kode/QR, "Saya sudah sampai"), denda telat, masa cek.
+- F10 serah terima & pengembalian (kamera, kode/QR, "Saya sudah sampai"), denda telat, masa cek; panel "Lanjutkan di HP" (QR) untuk PC.
 - F11 pembatalan (tabel A-3.6), jadwal ulang, tidak hadir + bantahan, pemberian strike.
 - Pembukaan sengketa dari semua pemicu (status `SENGKETA` + bukti); UI putusan admin menyusul di Sprint 5.
 - `payout.ts` + pembuatan tugas pencairan untuk semua jalur (normal, batal, kedaluwarsa); F23 antrean pencairan (klaim, rekening sumber, biaya transfer, unggah bukti); pemindahan antar rekening.
@@ -88,7 +91,8 @@ ID fitur merujuk ke [02](02-prd-fitur-mvp.md); aturan ke [01](01-alur-dan-aturan
 - E2E Playwright alur lengkap; tes konkuren untuk pemesanan dan pencairan.
 - Performa (LCP, ukuran bundle, indeks DB untuk pencarian).
 - Uji pemulihan backup; runbook insiden (job macet, webhook Telegram mati, salah transfer).
-- PWA (manifest, ikon, install prompt), halaman S&K & privasi.
+- PWA (manifest, ikon logo final, install prompt di HP & PC), gambar Open Graph, halaman S&K & privasi.
+- Uji visual & kontras di HP dan PC (lebar 360, 768, 1024, 1440 px).
 - Beta terbatas di production dengan pengguna undangan; perbaikan bug.
 
 ## 4. Definition of Ready
@@ -99,7 +103,7 @@ ID fitur merujuk ke [02](02-prd-fitur-mvp.md); aturan ke [01](01-alur-dan-aturan
 ## 5. Definition of Done
 - Memenuhi acceptance criteria dan lolos code review.
 - Tes otomatis untuk logika domain dan otorisasi ([04](04-arsitektur-teknis.md) bagian 8) lulus di CI.
-- Berfungsi di Chrome Android dan Safari iOS pada lebar 360 px; panel admin di Chrome desktop.
+- Berfungsi di Chrome Android dan Safari iOS pada lebar 360 px **dan** di desktop ≥ 1024 px (Chrome/Edge/Firefox) sesuai tata letak [03](03-panduan-ux-ui.md) bagian 2.1; panel admin di Chrome desktop.
 - Aksi admin tercatat di audit log; transisi status tercatat di `rental_events`.
 - Tidak ada galat baru di Sentry staging.
 - Dokumen di `/docs` diperbarui bila aturan, skema, atau API berubah.
