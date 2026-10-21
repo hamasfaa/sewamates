@@ -84,9 +84,9 @@ function ProfileFields({
     }
   }
   return (
-    <Card>
-      <div className="mb-7 flex items-start justify-between gap-4">
-        <div>
+    <Card className="min-w-0 p-4 sm:p-6">
+      <div className="mb-6 flex flex-col items-start gap-3 sm:flex-row sm:justify-between">
+        <div className="min-w-0">
           <span className="mb-4 inline-flex rounded-2xl bg-secondary p-3 text-primary">
             <UserRound size={25} />
           </span>
@@ -118,7 +118,7 @@ function ProfileFields({
           <p className="help">Mengubah nama setelah terverifikasi membutuhkan verifikasi ulang.</p>
         </div>
         <div className="grid gap-5 sm:grid-cols-2">
-          <div>
+          <div className="min-w-0">
             <label className="field-label" htmlFor="phone">
               Nomor HP terverifikasi
             </label>
@@ -177,8 +177,8 @@ function ProfileFields({
             Profil berhasil disimpan.
           </p>
         )}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
-          <Button disabled={busy} type="submit">
+        <div className="flex flex-col items-stretch gap-3 border-t border-border pt-5 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+          <Button disabled={busy} type="submit" className="w-full sm:w-auto">
             {busy ? <LoaderCircle size={17} className="animate-spin" /> : null}
             {onboarding ? "Lanjut verifikasi" : "Simpan profil"}
             <ArrowRight size={17} />
@@ -186,7 +186,7 @@ function ProfileFields({
           {!onboarding && (
             <Link
               href={`/pengguna/${profile.user.id}`}
-              className="inline-flex items-center gap-1 text-sm font-bold text-primary"
+              className="inline-flex min-h-11 items-center justify-center gap-1 text-sm font-bold text-primary sm:min-h-0 sm:justify-start"
             >
               Lihat profil publik
               <ExternalLink size={14} />

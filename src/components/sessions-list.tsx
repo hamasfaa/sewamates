@@ -29,7 +29,7 @@ export function SessionsList() {
     }
   }
   return (
-    <Card>
+    <Card className="min-w-0 p-4 sm:p-6">
       <h2 className="text-2xl">Perangkat & sesi</h2>
       <p className="mt-3 mb-6 text-sm text-muted-foreground">
         Keluar dari perangkat yang sudah tidak kamu pakai atau tidak dikenali.
@@ -42,7 +42,10 @@ export function SessionsList() {
       {query.loading && <div className="skeleton h-32" role="status" aria-label="Memuat sesi" />}
       <div className="divide-y divide-border">
         {query.data?.map((row) => (
-          <article key={row.id} className="flex flex-wrap items-start gap-3 py-5">
+          <article
+            key={row.id}
+            className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-3 py-5 sm:grid-cols-[auto_minmax(0,1fr)_auto]"
+          >
             <MonitorSmartphone size={23} className="shrink-0 text-primary" />
             <div className="min-w-0 flex-1">
               <h3 className="text-sm">
@@ -62,6 +65,7 @@ export function SessionsList() {
             <Button
               variant="outline"
               size="sm"
+              className="col-span-2 w-full sm:col-span-1 sm:w-auto"
               disabled={Boolean(busy)}
               onClick={() => void revoke(row.id, row.current)}
             >

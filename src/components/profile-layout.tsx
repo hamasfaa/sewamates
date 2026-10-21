@@ -35,12 +35,12 @@ export function ProfileLayout({ children, admin }: { children: React.ReactNode; 
       <p className="mb-2 text-xs font-bold tracking-widest text-primary uppercase">
         Akun SewaMates
       </p>
-      <h1 className="mb-7 text-3xl">Profil & pengaturan</h1>
-      <div className="grid gap-6 lg:grid-cols-[255px_1fr]">
-        <aside>
+      <h1 className="mb-5 text-2xl sm:mb-7 sm:text-3xl">Profil & pengaturan</h1>
+      <div className="grid min-w-0 grid-cols-1 gap-5 lg:grid-cols-[255px_minmax(0,1fr)] lg:gap-6">
+        <aside className="min-w-0">
           <nav
             aria-label="Menu profil"
-            className="flex gap-2 overflow-x-auto rounded-2xl border border-border bg-card p-3 lg:flex-col"
+            className="grid grid-cols-2 gap-2 rounded-2xl border border-border bg-card p-2 md:grid-cols-3 lg:flex lg:flex-col lg:p-3"
           >
             {[
               { href: "/profil", label: "Profil saya", icon: UserRound },
@@ -52,23 +52,24 @@ export function ProfileLayout({ children, admin }: { children: React.ReactNode; 
               <Link
                 key={href}
                 href={href}
+                aria-current={path === href ? "page" : undefined}
                 className={cn(
-                  "flex min-h-12 shrink-0 items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold",
+                  "flex min-h-12 min-w-0 items-center gap-2 rounded-xl px-3 py-3 text-sm font-semibold",
                   path === href
                     ? "bg-secondary text-primary"
                     : "text-muted-foreground hover:bg-background",
                 )}
               >
-                <Icon size={19} />
-                {label}
-                <ChevronRight className="ml-auto hidden lg:block" size={15} />
+                <Icon size={19} className="shrink-0" />
+                <span className="min-w-0 break-words">{label}</span>
+                <ChevronRight className="ml-auto hidden shrink-0 lg:block" size={15} />
               </Link>
             ))}
             <Button
               onClick={logout}
               disabled={busy}
               variant="ghost"
-              className="justify-start px-3 text-destructive"
+              className="min-w-0 justify-start rounded-xl px-3 text-destructive"
             >
               <LogOut size={18} />
               {busy ? "Keluar…" : "Keluar"}

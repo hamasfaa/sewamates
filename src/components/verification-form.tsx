@@ -52,9 +52,9 @@ export function VerificationForm() {
     );
   const status = profile.data.user.verificationStatus;
   return (
-    <Card>
-      <div className="mb-6 flex items-start justify-between gap-3">
-        <div>
+    <Card className="min-w-0 p-4 sm:p-6">
+      <div className="mb-6 flex flex-col items-start gap-3 sm:flex-row sm:justify-between">
+        <div className="min-w-0">
           <h2 className="text-2xl">Bikin saling percaya</h2>
           <p className="mt-3 text-sm leading-6 text-muted-foreground">
             Verifikasi identitasmu sebelum mulai menyewa dan menyewakan.

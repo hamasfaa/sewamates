@@ -50,6 +50,8 @@ Perubahan per layar di PC (≥ 1024 px):
 | Profil & pengaturan | Menu di sidebar kiri, isi di kanan |
 | Dialog & bottom sheet | Bottom sheet di HP menjadi **modal di tengah** atau dropdown di PC |
 
+Pada profil dan pengaturan, menu memakai dua kolom di HP, tiga kolom pada tablet (768–1023 px), dan sidebar kiri mulai 1024 px. Konten profil tetap satu kolom di bawah menu pada HP/tablet. Kartu dan kontrol mengikuti lebar layar; judul, badge verifikasi, serta tombol ditumpuk pada layar kecil. Tombol utama dan cabut sesi memenuhi lebar kartu pada HP agar mudah disentuh.
+
 Perilaku khusus PC:
 - **Login**: tombol "Masuk dengan Telegram" membuka Telegram Desktop/Web. Di sampingnya ditampilkan **QR code** deep link bot, supaya pengguna bisa memindai dengan HP dan menyelesaikan login di Telegram HP. Sesi tetap diberikan ke browser PC (A-3.1).
 - **Serah terima & pengembalian** dilakukan di lokasi, jadi butuh HP. Di PC, tombol langkah ini diganti panel "Lanjutkan di HP" dengan QR code menuju halaman transaksi yang sama. Masa cek, sengketa, rating, dan pembatalan tetap bisa dari PC.

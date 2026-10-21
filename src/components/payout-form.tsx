@@ -75,13 +75,13 @@ function PayoutFields({ profile, reload }: { profile: ProfileData; reload: () =>
     }
   }
   return (
-    <Card>
+    <Card className="min-w-0 p-4 sm:p-6">
       <div className="mb-6 flex items-start gap-3">
-        <span className="rounded-2xl bg-secondary p-3 text-primary">
+        <span className="shrink-0 rounded-2xl bg-secondary p-3 text-primary">
           <Wallet size={25} />
         </span>
-        <div>
-          <h2 className="text-2xl">Rekening pencairan</h2>
+        <div className="min-w-0">
+          <h2 className="text-xl sm:text-2xl">Rekening pencairan</h2>
           <p className="mt-2 text-sm text-muted-foreground">
             Untuk menerima hasil sewa dan pengembalian deposit.
           </p>
@@ -93,7 +93,9 @@ function PayoutFields({ profile, reload }: { profile: ProfileData; reload: () =>
           <p className="mt-1 font-bold">
             {profile.payout.provider} · {profile.payout.maskedNumber}
           </p>
-          <p className="mt-1 text-sm text-muted-foreground">{profile.payout.accountName}</p>
+          <p className="mt-1 text-sm break-words text-muted-foreground">
+            {profile.payout.accountName}
+          </p>
         </div>
       )}
       {confirmation && (
@@ -118,7 +120,7 @@ function PayoutFields({ profile, reload }: { profile: ProfileData; reload: () =>
       )}
       <form onSubmit={submit} className="form-stack">
         <div className="grid gap-5 sm:grid-cols-2">
-          <div>
+          <div className="min-w-0">
             <label className="field-label" htmlFor="payoutType">
               Jenis rekening
             </label>
@@ -136,7 +138,7 @@ function PayoutFields({ profile, reload }: { profile: ProfileData; reload: () =>
               <option value="ewallet">E-wallet</option>
             </select>
           </div>
-          <div>
+          <div className="min-w-0">
             <label className="field-label" htmlFor="provider">
               Bank / penyedia
             </label>
@@ -188,8 +190,12 @@ function PayoutFields({ profile, reload }: { profile: ProfileData; reload: () =>
             {error}
           </p>
         )}
-        <Button disabled={busy} type="submit" className="self-start">
-          <Send size={17} />
+        <Button
+          disabled={busy}
+          type="submit"
+          className="w-full whitespace-normal sm:w-auto sm:self-start"
+        >
+          <Send size={17} className="shrink-0" />
           {busy ? "Mengirim…" : "Konfirmasi lewat Telegram"}
         </Button>
         <p className="flex items-start gap-2 text-xs leading-5 text-muted-foreground">
