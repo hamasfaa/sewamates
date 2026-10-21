@@ -16,6 +16,10 @@ npm run dev
 
 Buka <http://localhost:3000>. Beranda dan halaman login dapat dibuka sebelum integrasi dikonfigurasi. Login akan menjelaskan bahwa layanan belum aktif jika konfigurasi bot belum tersedia. Tidak ada bypass login atau akun demo yang bisa membuka admin.
 
+Untuk memperbarui dependency atau meregenerasi `package-lock.json`, gunakan **npm 11.21.1**, yang dipakai untuk menyinkronkan lockfile ini. npm 11.6.2 dapat melewatkan metadata peer dependency WASM `@emnapi/core` dan `@emnapi/runtime`, sehingga validasi npm yang lebih baru di CI gagal. Masalah dependency lintas platform juga dibahas pada [issue upstream napi-rs](https://github.com/napi-rs/napi-rs/issues/3174).
+
+Jika perlu menyinkronkan ulang, jalankan `npx --yes npm@11.21.1 install --package-lock-only --ignore-scripts`, lalu periksa dengan `npx --yes npm@11.21.1 ci`. Commit perubahan lockfile bersama perubahan dependency.
+
 Isi `.env.local` sesuai [panduan lingkungan](docs/setup-sprint-1.md), lalu siapkan database Supabase hosted yang masih kosong:
 
 ```powershell
