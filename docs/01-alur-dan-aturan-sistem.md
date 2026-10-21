@@ -226,4 +226,4 @@ Biaya batal = 20% ⚙ dari total sewa. Contoh (sewa Rp60.000, dana diterima Rp16
 - Pembayaran otomatis lewat payment gateway (disiapkan lewat antarmuka `PaymentProvider`).
 - Pengiriman kurir; transaksi di luar titik kampus.
 - Perpanjangan sewa saat `BERJALAN` (P1).
-- Multi-kampus (skema sudah menyiapkan `campus_id`).
+- Operasional multi-kampus lanjutan. Referensi dan pilihan kampus Indonesia pada profil masuk Sprint 1 sesuai [ADR 0002](decisions/0002-pilihan-multi-kampus.md); titik serah terima dan filter listing per kampus mengikuti Sprint 2.

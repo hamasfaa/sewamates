@@ -47,6 +47,7 @@ ID fitur merujuk ke [02](02-prd-fitur-mvp.md); aturan ke [01](01-alur-dan-aturan
 - F1 login via Telegram, middleware role (sesi admin 12 jam), daftar & cabut sesi.
 - F2 verifikasi identitas + F20 antrean verifikasi admin.
 - F3 profil + rekening pencairan (enkripsi nomor rekening, konfirmasi via bot).
+- Perluasan atas permintaan pemilik aplikasi: referensi 197 kampus Indonesia, impor idempoten, pencarian/pilihan kampus pada profil tanpa pilihan otomatis. Lihat [ADR 0002](decisions/0002-pilihan-multi-kampus.md).
 - Kerangka panel admin + audit log + F27 settings dasar.
 - Notifikasi in-app dasar (tabel + lonceng).
 
@@ -56,6 +57,7 @@ ID fitur merujuk ke [02](02-prd-fitur-mvp.md); aturan ke [01](01-alur-dan-aturan
 - F4 wizard listing, listing saya, kalender blok.
 - F21 moderasi listing; F27 CRUD kategori & titik (super admin).
 - F5 beranda & pencarian (full-text, filter tanggal, cursor pagination).
+- Listing, pencarian, dan titik serah terima mengikuti `campus_id`; validasi titik terhadap kampus listing, dan sediakan filter kampus dari referensi Sprint 1.
 - F6 detail barang.
 
 **Sprint 3 – Transaksi I**

@@ -1,0 +1,11 @@
+node_modules
+.next
+coverage
+package-lock.json
+playwright-report
+test-results
+docs/01-alur-dan-aturan-sistem.md
+docs/02-prd-fitur-mvp.md
+docs/03-panduan-ux-ui.md
+docs/04-arsitektur-teknis.md
+docs/05-roadmap-dan-backlog.md

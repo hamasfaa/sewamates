@@ -1,0 +1,57 @@
+import { z } from "zod";
+const integer = (min: number, max: number) => z.number().int().min(min).max(max);
+export const settingsSchema = z
+  .object({
+    login_ttl_minutes: integer(1, 30).default(10),
+    login_max_requests: integer(1, 20).default(5),
+    login_window_minutes: integer(1, 60).default(15),
+    action_ttl_minutes: integer(1, 30).default(10),
+    user_session_days: integer(1, 30).default(30),
+    admin_session_hours: integer(1, 12).default(12),
+    admin_open_hour: integer(0, 23).default(8),
+    admin_close_hour: integer(1, 24).default(21),
+    identity_sla_hours: integer(1, 72).default(24),
+    commission_rate_bp: integer(0, 10000).default(1000),
+    deposit_min_bp: integer(1, 10000).default(1000),
+    deposit_max_bp: integer(1, 10000).default(5000),
+    deposit_cap: integer(1000, 100000000).default(1000000),
+    booking_lead_hours: integer(1, 168).default(12),
+    booking_max_days: integer(1, 365).default(60),
+    availability_buffer_hours: integer(0, 48).default(3),
+    new_account_completed_min: integer(1, 100).default(3),
+    new_account_value_cap: integer(1000, 100000000).default(500000),
+    owner_response_hours: integer(1, 72).default(24),
+    response_before_start_hours: integer(1, 48).default(6),
+    payment_window_hours: integer(1, 48).default(6),
+    payment_before_start_hours: integer(1, 24).default(3),
+    payment_extension_hours: integer(1, 24).default(2),
+    payment_sla_hours: integer(1, 24).default(2),
+    payment_next_day_hour: integer(1, 23).default(10),
+    stale_start_hours: integer(1, 72).default(24),
+    review_window_hours: integer(1, 72).default(24),
+    reschedule_max: integer(0, 10).default(2),
+    no_show_wait_minutes: integer(1, 120).default(30),
+    no_show_response_hours: integer(1, 48).default(12),
+    no_show_return_hours: integer(1, 168).default(72),
+    cancel_free_hours: integer(1, 168).default(24),
+    cancellation_rate_bp: integer(0, 10000).default(2000),
+    late_grace_hours: integer(0, 24).default(2),
+    late_rate_bp: integer(0, 10000).default(5000),
+    lost_after_hours: integer(24, 720).default(72),
+    transfer_fee_payer: z.literal("platform").default("platform"),
+    claim_minutes: integer(1, 120).default(30),
+    payout_cutoff_hour: integer(0, 23).default(18),
+    payout_same_day_hour: integer(1, 24).default(21),
+    payout_next_day_hour: integer(1, 23).default(12),
+    dispute_files_max: integer(1, 30).default(10),
+    dispute_response_hours: integer(1, 72).default(24),
+    dispute_decision_hours: integer(1, 168).default(72),
+    strike_limit: integer(1, 10).default(3),
+    strike_window_days: integer(1, 365).default(90),
+    rating_window_days: integer(1, 30).default(7),
+  })
+  .strict()
+  .refine((v) => v.admin_close_hour > v.admin_open_hour, "Jam tutup harus setelah jam buka.")
+  .refine((v) => v.deposit_max_bp >= v.deposit_min_bp, "Batas atas deposit harus ≥ batas bawah.");
+export type Settings = z.infer<typeof settingsSchema>;
+export const DEFAULT_SETTINGS = settingsSchema.parse({});

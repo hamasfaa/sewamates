@@ -61,7 +61,7 @@ Tipe: uang = `bigint` rupiah; waktu = `timestamptz`; id = `uuid`. Semua tabel me
 
 ### 4.1 Pengguna & referensi
 ```
-campuses(id, name)
+campuses(id, name, source_key UNIQUE NULL, domains jsonb, is_active boolean)
 users(id, phone UNIQUE, name, avatar_url, role[user|admin|super_admin],
       telegram_user_id UNIQUE, telegram_chat_id, telegram_linked_at, telegram_blocked_at,
       account_status[aktif|ditangguhkan|dihapus], verification_status[belum|menunggu|terverifikasi|ditolak],
@@ -332,7 +332,7 @@ Dipanggil tiap menit oleh `pg_cron`. Semua job **idempoten** (aman dijalankan ul
   - Settings: perubahan nilai tidak memengaruhi transaksi yang sudah punya `rules_snapshot`.
   - Otorisasi: pengguna tidak bisa mengakses transaksi/percakapan orang lain.
   - E2E (Playwright): alur lengkap ajukan → bayar → verifikasi → serah terima → kembali → pencairan → rating, dijalankan di dua viewport: HP (390 × 844, emulasi iPhone/Android) dan desktop (1440 × 900).
-- Seed: satu kampus, titik serah terima, kategori, settings default, satu super admin.
+- Seed Sprint 1: snapshot kampus Indonesia (Hipo, 197 entri, sumber/lisensi di `data/campuses`), settings default, bootstrap super admin dari akun yang sudah login. Impor kampus memakai `source_key` tanpa mengganti ID; kampus yang diarsipkan tidak ditawarkan untuk pilihan baru. Titik serah terima per kampus dan kategori mengikuti Sprint 2. Lihat [ADR 0002](decisions/0002-pilihan-multi-kampus.md).
 
 ## 9. Observability
 - Sentry untuk galat FE/BE; log terstruktur dengan `rental_id`, `user_id`, `request_id`.

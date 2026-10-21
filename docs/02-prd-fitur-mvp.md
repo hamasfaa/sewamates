@@ -1,6 +1,6 @@
 # 02 – PRD & Fitur MVP
 
-**Lingkup MVP:** alur transaksi sewa end-to-end (registrasi → listing → sewa → bayar manual → serah terima → pengembalian → pencairan manual → rating) untuk satu kampus, plus panel admin.
+**Lingkup MVP:** alur transaksi sewa end-to-end (registrasi → listing → sewa → bayar manual → serah terima → pengembalian → pencairan manual → rating), plus panel admin. Sesuai permintaan pemilik aplikasi pada 21 Oktober 2026, pilihan banyak kampus Indonesia di registrasi/profil masuk Sprint 1; listing dan titik serah terima per kampus mengikuti Sprint 2. Lihat [ADR 0002](decisions/0002-pilihan-multi-kampus.md).
 
 **Prioritas:** P0 = wajib MVP, P1 = setelah MVP stabil, P2 = nanti.
 Semua aturan dan angka merujuk ke [01 – Alur & Aturan Sistem](01-alur-dan-aturan-sistem.md) (disingkat "A-x.y").
@@ -51,7 +51,7 @@ Semua aturan dan angka merujuk ke [01 – Alur & Aturan Sistem](01-alur-dan-atur
 | F43 | Payment gateway (menggantikan verifikasi & pencairan manual) | P1 |
 | F44 | Permintaan barang ("dicari: lensa 50mm") | P2 |
 | F45 | Promo/voucher | P2 |
-| F46 | Multi-kampus | P2 |
+| F46 | Operasional multi-kampus lanjutan dan tema per kampus; referensi/pilihan profil sudah masuk Sprint 1 | P2 |
 | F47 | Aplikasi native (Capacitor/Flutter) | P2 |
 
 ## 2. User Story & Acceptance Criteria
