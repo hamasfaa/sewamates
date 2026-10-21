@@ -71,21 +71,29 @@ identity_verifications(id, user_id, card_type[ktm|ktp], card_photo_path, selfie_
 payout_accounts(id, user_id UNIQUE, type[bank|ewallet], provider, account_no_enc, account_name)
 user_blocks(blocker_id, blocked_id, PRIMARY KEY(blocker_id, blocked_id))
 strikes(id, user_id, reason, rental_id NULL, given_by NULL, expires_at)
-categories(id, name, active)
+categories(id, name, active)                          -- nama unik tanpa membedakan kapital
 pickup_points(id, campus_id, name, description, hours_json, active)
+  -- hours_json: 7 entri Senin–Minggu, null (tutup) atau {"open":"HH:MM","close":"HH:MM"} WIB
+  -- nama unik per kampus; campus_id tidak dapat diubah setelah dibuat
 ```
 
 ### 4.2 Listing
 ```
 items(id, owner_id, campus_id, category_id, title, description, item_value, price_per_day, deposit,
       min_days, max_days, status[menunggu_review|aktif|ditolak|dijeda|diarsipkan], reject_reason,
+      reviewed_by, reviewed_at, submitted_at, published_at, version,
       rating_avg, rating_count, completed_count, search_tsv tsvector GENERATED)
   CHECK (deposit > 0 AND min_days >= 1 AND max_days >= min_days)
   -- rentang deposit terhadap item_value divalidasi di service (nilainya dari settings)
-item_photos(id, item_id, path, thumb_path, sort)
-item_pickup_points(item_id, pickup_point_id)
-availability_blocks(id, item_id, period tstzrange, reason)
+  -- campus_id = kampus pemilik saat listing dibuat, tidak dapat dipindahkan
+  -- submitted_at: masuk antrean review; published_at: persetujuan pertama (urutan "terbaru")
+  -- version naik setiap perubahan pemilik; keputusan admin wajib membawa versi yang dilihat
+  -- search_tsv = to_tsvector('simple', title) bobot A + to_tsvector('simple', description) bobot B
+item_photos(id, item_id, path, thumb_path, sort)    -- bucket items-public, 1600 px + 480 px
+item_pickup_points(item_id, pickup_point_id)        -- trigger: titik harus sekampus dengan listing
+availability_blocks(id, item_id, period tstzrange, reason)   -- [mulai, akhir) dari tanggal WIB
 ```
+Keputusan implementasi Sprint 2 (pencarian, foto, review ulang, kampus) dicatat di [ADR 0003](decisions/0003-marketplace-sprint-2.md).
 
 ### 4.3 Transaksi
 ```
@@ -197,10 +205,14 @@ POST   /api/me/push-subscriptions
 POST   /api/uploads/sign                (signed upload URL per bucket & tujuan)
 
 # Listing & pencarian
-GET    /api/items?q=&category=&min=&max=&point=&from=&to=&sort=&cursor=
+GET    /api/items?q=&category=&campus=&min=&max=&point=&from=&to=&sort=&cursor=
+       (sort = relevan | terbaru | termurah | rating; 20 item per halaman)
+GET    /api/categories                  GET /api/pickup-points?campus=   (aktif saja)
 POST   /api/items                       GET/PATCH /api/items/:id
+GET    /api/items/:id/edit              GET /api/me/listing-options      GET /api/me/items
 POST   /api/items/:id/pause | resume | archive
 GET    /api/items/:id/availability?month=
+GET    /api/items/:id/blocks            (pemilik; blokir mendatang)
 POST   /api/items/:id/blocks            DELETE /api/items/:id/blocks/:blockId
 GET    /api/users/:id                   GET /api/users/:id/reviews
 
@@ -228,7 +240,8 @@ POST   /api/reports
 
 # Admin (role admin, kecuali ditandai SA = super_admin)
 GET    /api/admin/verifications         POST /api/admin/verifications/:id/decision
-GET    /api/admin/items/pending         POST /api/admin/items/:id/decision
+GET    /api/admin/items/pending         GET /api/admin/items/:id
+POST   /api/admin/items/:id/decision    (disetujui / ditolak + alasan; wajib version)
 GET    /api/admin/reports               POST /api/admin/reports/:id/action
 GET    /api/admin/payments              POST /api/admin/payments/:proofId/decision   (per bukti: terima + nominal / tolak + alasan)
 GET    /api/admin/payout-tasks          POST /api/admin/payout-tasks/:id/claim
@@ -332,7 +345,8 @@ Dipanggil tiap menit oleh `pg_cron`. Semua job **idempoten** (aman dijalankan ul
   - Settings: perubahan nilai tidak memengaruhi transaksi yang sudah punya `rules_snapshot`.
   - Otorisasi: pengguna tidak bisa mengakses transaksi/percakapan orang lain.
   - E2E (Playwright): alur lengkap ajukan → bayar → verifikasi → serah terima → kembali → pencairan → rating, dijalankan di dua viewport: HP (390 × 844, emulasi iPhone/Android) dan desktop (1440 × 900).
-- Seed Sprint 1: snapshot kampus Indonesia (Hipo, 197 entri, sumber/lisensi di `data/campuses`), settings default, bootstrap super admin dari akun yang sudah login. Impor kampus memakai `source_key` tanpa mengganti ID; kampus yang diarsipkan tidak ditawarkan untuk pilihan baru. Titik serah terima per kampus dan kategori mengikuti Sprint 2. Lihat [ADR 0002](decisions/0002-pilihan-multi-kampus.md).
+- Seed Sprint 1: snapshot kampus Indonesia (Hipo, 197 entri, sumber/lisensi di `data/campuses`), settings default, bootstrap super admin dari akun yang sudah login. Impor kampus memakai `source_key` tanpa mengganti ID; kampus yang diarsipkan tidak ditawarkan untuk pilihan baru. Lihat [ADR 0002](decisions/0002-pilihan-multi-kampus.md).
+- Seed Sprint 2: 12 kategori awal hanya bila tabel `categories` kosong. Titik serah terima tidak di-seed karena merupakan lokasi nyata; super admin menambahkannya per kampus dari panel. Lihat [ADR 0003](decisions/0003-marketplace-sprint-2.md).
 
 ## 9. Observability
 - Sentry untuk galat FE/BE; log terstruktur dengan `rental_id`, `user_id`, `request_id`.

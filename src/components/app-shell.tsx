@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import Form from "next/form";
 import { usePathname } from "next/navigation";
 import {
   Bell,
@@ -62,6 +63,23 @@ export function AppShell({
       clearInterval(timer);
     };
   }, [user]);
+  // "/" focuses the visible search box (03 §2.1), unless the user is already typing.
+  useEffect(() => {
+    const focusSearch = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement;
+      if (event.key !== "/" || event.ctrlKey || event.metaKey || event.altKey) return;
+      if (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))
+        return;
+      const box = [...document.querySelectorAll<HTMLInputElement>('input[name="q"]')].find(
+        (input) => input.offsetParent !== null,
+      );
+      if (!box) return;
+      event.preventDefault();
+      box.focus();
+    };
+    document.addEventListener("keydown", focusSearch);
+    return () => document.removeEventListener("keydown", focusSearch);
+  }, []);
   const isAdmin = pathname.startsWith("/admin");
   return (
     <>
@@ -76,13 +94,22 @@ export function AppShell({
           <Link href="/" aria-label="SewaMates, beranda">
             <Wordmark />
           </Link>
-          <Link
-            href="/cari"
-            className="hidden min-h-11 flex-1 items-center gap-2 rounded-full border border-border bg-background px-4 text-sm text-muted-foreground xl:flex"
-          >
-            <Search size={18} />
-            Mau pinjam apa hari ini?
-          </Link>
+          <Form action="/cari" role="search" className="relative hidden min-w-0 flex-1 xl:block">
+            <Search
+              size={18}
+              className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden
+            />
+            <input
+              type="search"
+              name="q"
+              aria-label="Cari barang"
+              aria-keyshortcuts="/"
+              maxLength={100}
+              placeholder="Mau pinjam apa hari ini?"
+              className="min-h-11 w-full rounded-full border border-border bg-background pr-4 pl-11 text-sm outline-none focus:border-primary"
+            />
+          </Form>
           <nav aria-label="Navigasi utama" className="hidden items-center gap-1 lg:flex">
             <Link
               className={cn(
@@ -103,6 +130,11 @@ export function AppShell({
             </Link>
           </nav>
           <div className="flex items-center gap-1 sm:gap-2">
+            <Button variant="ghost" size="icon" className="hidden lg:inline-flex xl:hidden" asChild>
+              <Link href="/cari" aria-label="Cari barang">
+                <Search size={21} />
+              </Link>
+            </Button>
             <Button variant="ghost" size="icon" asChild>
               <Link href="/chat" aria-label="Chat">
                 <MessageCircle size={21} />

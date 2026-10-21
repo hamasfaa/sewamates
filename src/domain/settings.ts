@@ -11,6 +11,7 @@ export const settingsSchema = z
     admin_open_hour: integer(0, 23).default(8),
     admin_close_hour: integer(1, 24).default(21),
     identity_sla_hours: integer(1, 72).default(24),
+    listing_sla_hours: integer(1, 168).default(24),
     commission_rate_bp: integer(0, 10000).default(1000),
     deposit_min_bp: integer(1, 10000).default(1000),
     deposit_max_bp: integer(1, 10000).default(5000),

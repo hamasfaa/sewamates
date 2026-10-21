@@ -7,6 +7,11 @@ export class AppError extends Error {
     super(message);
   }
 }
+// Drizzle wraps driver errors; the PostgreSQL code is on the error or its cause.
+export function isUniqueViolation(error: unknown) {
+  const value = error as { code?: string; cause?: { code?: string } } | undefined;
+  return (value?.code ?? value?.cause?.code) === "23505";
+}
 export function assert(
   condition: unknown,
   code: string,

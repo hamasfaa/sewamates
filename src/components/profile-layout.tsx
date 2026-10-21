@@ -6,6 +6,7 @@ import {
   BadgeCheck,
   Wallet,
   MonitorSmartphone,
+  Package,
   Shield,
   LogOut,
   ChevronRight,
@@ -46,6 +47,7 @@ export function ProfileLayout({ children, admin }: { children: React.ReactNode; 
               { href: "/profil", label: "Profil saya", icon: UserRound },
               { href: "/profil/verifikasi", label: "Verifikasi identitas", icon: BadgeCheck },
               { href: "/profil/rekening", label: "Rekening pencairan", icon: Wallet },
+              { href: "/profil/listing", label: "Listing saya", icon: Package },
               { href: "/profil/sesi", label: "Perangkat & sesi", icon: MonitorSmartphone },
               ...(admin ? [{ href: "/admin", label: "Panel admin", icon: Shield }] : []),
             ].map(({ href, label, icon: Icon }) => (

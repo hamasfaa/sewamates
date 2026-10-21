@@ -2,7 +2,7 @@
 
 Web sewa barang antar mahasiswa, dibangun dengan Next.js App Router, TypeScript, Tailwind CSS, komponen pola shadcn/ui, Drizzle, PostgreSQL/Supabase, dan grammY. Spesifikasi PM ada di [docs](docs/README.md).
 
-**Lingkup saat ini: Sprint 1 — Fondasi.** Marketplace dan transaksi belum diimplementasikan. Lihat [status sprint](docs/sprints/01-fondasi.md) untuk hasil verifikasi dan dependensi eksternal yang belum selesai.
+**Lingkup saat ini: Sprint 2 — Marketplace.** Listing, moderasi, kategori dan titik serah terima, pencarian, serta detail barang sudah tersedia. Pengajuan sewa, pembayaran, dan chat mengikuti Sprint 3. Lihat status [Sprint 1](docs/sprints/01-fondasi.md) dan [Sprint 2](docs/sprints/02-marketplace.md) untuk hasil verifikasi dan dependensi eksternal yang belum selesai.
 
 ## Menjalankan aplikasi
 
@@ -27,6 +27,8 @@ Jika memakai Supabase CLI lokal, `npx supabase start` menerapkan migrasi. Sesuda
 
 `db:migrate` menjalankan SQL berurutan dan memeriksa hash migrasi yang sudah diterapkan. Jangan mengedit migrasi yang sudah dipakai bersama tim; tambahkan file migrasi baru. `db:seed` idempoten dan tidak menimpa pengaturan yang sudah diubah admin. Schema Drizzle merepresentasikan tabel, sedangkan constraint, trigger, dan RLS didefinisikan di SQL.
 
+Seed juga mengisi 12 kategori awal bila tabel kategori masih kosong. Titik serah terima tidak di-seed: super admin menambahkannya per kampus di **Admin → Pengaturan → Titik serah terima**, karena wizard listing hanya menawarkan titik aktif di kampus pemilik. Foto listing memakai bucket publik `items-public` yang dibuat migrasi `0004`; langkah penyiapan lain ada di [Sprint 2](docs/sprints/02-marketplace.md).
+
 Registrasi/profil mendukung pilihan dan pencarian **197 kampus Indonesia**. Seed memuat snapshot [Hipo](https://github.com/Hipo/university-domains-list) dari repo, sehingga tidak memerlukan API key tambahan. Untuk database yang sudah ada, sesudah migrasi jalankan `npm run db:campuses`; perintah ini hanya mengimpor referensi kampus. ID profil lama tetap tersimpan. Lihat [sumber dan pemeliharaan data](data/campuses/README.md); dataset komunitas ini belum mencakup seluruh perguruan tinggi Indonesia.
 
 ## Pemeriksaan
@@ -49,8 +51,8 @@ Tes browser memakai build production dan menjalankan server sementara. Ukuran la
 ```text
 app/                    halaman publik, pengguna, admin, dan Route Handler API
 src/components/         UI responsif dan formulir
-src/domain/             aturan murni (settings awal)
-src/services/           auth, profil, bot, verifikasi, admin
+src/domain/             aturan murni (settings, deposit/komisi, status listing, tanggal WIB, pencarian)
+src/services/           auth, profil, bot, verifikasi, admin, listing, katalog, moderasi, pencarian
 src/db/                 schema Drizzle dan transaksi idempoten
 src/lib/                auth guard, validasi, kriptografi, storage, HTTP
 src/jobs/               job kedaluwarsa login dan konfirmasi
@@ -62,6 +64,6 @@ tests/                  unit, integrasi PostgreSQL, dan browser
 docs/                   spesifikasi PM, setup, ADR, dan status sprint
 ```
 
-API Sprint 1 mengikuti URL dokumen 04. Dispatch Route Handler mengarahkan request ke service; otorisasi dilakukan lagi di server. Semua mutasi browser wajib `Origin` yang sama dengan `NEXT_PUBLIC_APP_URL`. Mutasi profil, rekening, verifikasi, keputusan admin, dan settings mendukung `Idempotency-Key`; pemakaian ulang key dengan isi berbeda mendapat HTTP 409.
+API Sprint 1–2 mengikuti URL dokumen 04. Dispatch Route Handler mengarahkan request ke service (rute marketplace di `src/lib/marketplace-routes.ts`); otorisasi dilakukan lagi di server. Semua mutasi browser wajib `Origin` yang sama dengan `NEXT_PUBLIC_APP_URL`. Mutasi profil, rekening, verifikasi, listing, blokir tanggal, keputusan admin, katalog, dan settings mendukung `Idempotency-Key`; pemakaian ulang key dengan isi berbeda mendapat HTTP 409.
 
 CI berjalan saat pull request dan push ke `main`. Deployment staging mengikuti CI berhasil apabila GitHub environment `staging` memiliki secret Vercel. Database dimigrasikan secara terpisah sebelum deployment pertama; lihat panduan setup. Tidak ada deployment production pada Sprint 1.

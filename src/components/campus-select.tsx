@@ -7,27 +7,35 @@ export function CampusSelect({
   campuses,
   value,
   onChange,
+  id = "campus",
+  emptyLabel = "Pilih kampusmu",
+  required = true,
 }: {
   campuses: CampusOption[];
   value: string;
   onChange: (id: string) => void;
+  id?: string;
+  // Search filters use an empty value for "all campuses"; the profile requires a choice.
+  emptyLabel?: string;
+  required?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const available = campuses.filter((campus) => campus.isActive);
   const matches = filterCampuses(available, query);
   const selected = campuses.find((campus) => campus.id === value);
   const keepSelected = selected && !matches.some((campus) => campus.id === selected.id);
+  const results = `${id}-results`;
 
   return (
     <div className="min-w-0">
-      <label className="field-label" htmlFor="campus">
+      <label className="field-label" htmlFor={id}>
         Kampus
       </label>
       <Input
         type="search"
         aria-label="Cari kampus"
-        aria-controls="campus"
-        aria-describedby="campus-results"
+        aria-controls={id}
+        aria-describedby={results}
         placeholder="Cari nama atau singkatan kampus"
         value={query}
         maxLength={100}
@@ -36,14 +44,14 @@ export function CampusSelect({
       />
       <select
         className="input w-full min-w-0"
-        id="campus"
+        id={id}
         name="campusId"
         value={value}
-        required
+        required={required}
         onChange={(event) => onChange(event.target.value)}
-        aria-describedby="campus-results"
+        aria-describedby={results}
       >
-        <option value="">Pilih kampusmu</option>
+        <option value="">{emptyLabel}</option>
         {keepSelected && <option value={selected.id}>{selected.name} (pilihan saat ini)</option>}
         {matches.map((campus) => (
           <option key={campus.id} value={campus.id}>
@@ -51,7 +59,7 @@ export function CampusSelect({
           </option>
         ))}
       </select>
-      <p className="help" id="campus-results" role="status">
+      <p className="help" id={results} role="status">
         {!available.length
           ? "Daftar kampus belum tersedia. Coba muat ulang sebentar lagi."
           : !matches.length

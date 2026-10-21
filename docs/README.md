@@ -18,7 +18,7 @@ Urutan baca untuk developer baru: 01 → 04 → 02 → 03 → 05.
 
 | Keputusan | Rincian |
 |-----------|---------|
-| Pembayaran tanpa payment gateway | Penyewa transfer ke rekening/e-wallet platform (Mandiri, BCA, OVO, dll) dan unggah bukti; admin verifikasi manual; admin transfer pencairan/refund dan unggah bukti |
+| Pembayaran tanpa payment gateway | Penyewa transfer ke rekening/e-wallet platform (Mandiri, BCA, OVO, dll) dan unggah bukti; admin verifikasi manual; admin transfer pencairan/refund dan ung~gah bukti |
 | Kode unik | 3 digit, dihitung sebagai bagian deposit (dikembalikan) |
 | Jam operasional admin | 08.00–21.00 WIB setiap hari |
 | Pemegang dana | Semua admin; kontrol lewat klaim tugas, audit log, bukti permanen |
@@ -36,4 +36,6 @@ Pada diagram asli, kotak "Pengembalian & cek kondisi" muncul dua kali. Kotak ked
 
 ## Pelaksanaan sprint
 
-Pengembangan dimulai dari [Sprint 1 — Fondasi](sprints/01-fondasi.md). Panduan konfigurasi ada di [Setup Sprint 1](setup-sprint-1.md), dan keputusan implementasi awal dicatat pada [ADR 0001](decisions/0001-fondasi-sprint-1.md). Sprint berikutnya menunggu penyelesaian Definition of Done sprint yang sedang berjalan.
+Pengembangan dimulai dari [Sprint 1 — Fondasi](sprints/01-fondasi.md). Panduan konfigurasi ada di [Setup Sprint 1](setup-sprint-1.md), dan keputusan implementasi awal dicatat pada [ADR 0001](decisions/0001-fondasi-sprint-1.md).
+
+[Sprint 2 — Marketplace](sprints/02-marketplace.md) dikerjakan atas permintaan pemilik aplikasi sementara sisa DoD Sprint 1 (staging dan integrasi nyata) masih terbuka. Keputusan implementasinya ada di [ADR 0003](decisions/0003-marketplace-sprint-2.md), dan langkah penyiapan tambahan ada di dokumen sprint tersebut.

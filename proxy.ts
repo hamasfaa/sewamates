@@ -4,7 +4,9 @@ export function proxy(request: NextRequest) {
   // This is an optimistic navigation guard. Services verify the DB session and role.
   if (
     !request.cookies.has("sm_session") &&
-    /^\/(admin|profil|notifikasi|daftar)(\/|$)/.test(request.nextUrl.pathname)
+    /^\/((admin|profil|notifikasi|daftar|sewakan)(\/|$)|barang\/[^/]+\/(ubah|kalender)$)/.test(
+      request.nextUrl.pathname,
+    )
   ) {
     return NextResponse.redirect(new URL("/masuk", request.url));
   }

@@ -11,7 +11,8 @@ import { integrationsReady, required } from "./env";
 import { randomToken, safeEqual } from "./crypto";
 import { body, checkOrigin, clientIp, endpoint, json } from "./http";
 import { uploadInput } from "./validation";
-import { signUpload } from "./storage";
+import { canUpload, signUpload } from "./storage";
+import { privateMarketplaceRoute, publicMarketplaceRoute } from "./marketplace-routes";
 import {
   startLogin,
   consumeLogin,
@@ -148,6 +149,9 @@ export const dispatch = endpoint(async (request) => {
   }
   if (path === "campuses" && method === "GET")
     return json(await listCampuses(getDb(), url.searchParams.get("q") || ""));
+  const route = { request, url, path, parts, method };
+  const publicRoute = await publicMarketplaceRoute(route);
+  if (publicRoute) return publicRoute;
   if (/^users\/[^/]+$/.test(path) && method === "GET") {
     const [user] = await getDb()
       .select({
@@ -168,7 +172,7 @@ export const dispatch = endpoint(async (request) => {
   // All remaining routes require a live server-side session, including every admin endpoint.
   const actor = await requireActor(
     parts[0] === "admin"
-      ? parts[1] === "settings"
+      ? ["settings", "categories", "pickup-points"].includes(parts[1])
         ? ["super_admin"]
         : ["admin", "super_admin"]
       : undefined,
@@ -228,13 +232,9 @@ export const dispatch = endpoint(async (request) => {
     });
   }
   if (path === "uploads/sign" && method === "POST") {
-    assert(
-      actor.user.accountStatus === "aktif",
-      "ACCOUNT_RESTRICTED",
-      "Akun sedang dibatasi.",
-      403,
-    );
-    return json(await signUpload(db, actor.user.id, uploadInput.parse(await body(request))), 201);
+    const input = uploadInput.parse(await body(request));
+    canUpload(actor.user, input.purpose);
+    return json(await signUpload(db, actor.user.id, input), 201);
   }
   if (path === "notifications" && method === "GET") {
     const rows = await db
@@ -294,5 +294,7 @@ export const dispatch = endpoint(async (request) => {
         idempotencyKey,
       ),
     );
+  const privateRoute = await privateMarketplaceRoute(route, actor.user, idempotencyKey);
+  if (privateRoute) return privateRoute;
   throw new AppError("NOT_FOUND", "Endpoint tidak ditemukan.", 404);
 });

@@ -42,7 +42,7 @@ Untuk Supabase lokal, jalankan Docker Desktop dan `npx supabase start`. CLI mene
 
 Seed mengimpor 197 kampus Indonesia dari snapshot Hipo berlisensi MIT. Profil menyediakan pencarian nama/singkatan dan wajib memilih kampus secara eksplisit. Tidak ada API key baru atau panggilan ke API eksternal saat pengguna membuka profil. Data komunitas ini belum mencakup seluruh perguruan tinggi; asal data dan cara memperbaruinya tersedia di [referensi kampus](../data/campuses/README.md).
 
-Untuk database hosted yang sudah memakai seed lama, jalankan `npm run db:migrate`, lalu `npm run db:campuses`. Untuk database lokal yang dikelola CLI, jalankan `npx supabase migration up`, lalu `npm run db:campuses`. Impor dapat diulang tanpa menggandakan kampus atau mengganti ID. Placeholder `Kampus Surabaya` diarsipkan; referensi profil lama tetap tersimpan dan dapat diganti melalui halaman profil. Perluasan cakupan ini mengikuti permintaan pemilik aplikasi pada [ADR 0002](decisions/0002-pilihan-multi-kampus.md). Seed kategori dan titik serah terima per kampus tetap berada di Sprint 2.
+Untuk database hosted yang sudah memakai seed lama, jalankan `npm run db:migrate`, lalu `npm run db:campuses`. Untuk database lokal yang dikelola CLI, jalankan `npx supabase migration up`, lalu `npm run db:campuses`. Impor dapat diulang tanpa menggandakan kampus atau mengganti ID. Placeholder `Kampus Surabaya` diarsipkan; referensi profil lama tetap tersimpan dan dapat diganti melalui halaman profil. Perluasan cakupan ini mengikuti permintaan pemilik aplikasi pada [ADR 0002](decisions/0002-pilihan-multi-kampus.md). Seed kategori dan pengelolaan titik serah terima per kampus ditambahkan di [Sprint 2](sprints/02-marketplace.md).
 
 ## Bot Telegram
 

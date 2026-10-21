@@ -5,6 +5,7 @@ import * as schema from "../src/db/schema";
 import { importCampusSnapshot } from "../src/services/campus-service";
 import snapshot from "../data/campuses/indonesia.json";
 import { bootstrapSuperAdmin } from "./lib/bootstrap-super-admin";
+import { seedDefaultCategories } from "./lib/seed-categories";
 const url = process.env.DIRECT_DATABASE_URL || process.env.DATABASE_URL;
 if (!url) throw new Error("Isi DATABASE_URL sebelum menjalankan seed.");
 const pool = new Pool({ connectionString: url, max: 1 }),
@@ -19,10 +20,14 @@ try {
       [key, JSON.stringify(value)],
     );
   }
+  // Pickup points are real campus locations, so super admins add them from the panel.
+  const seededCategories = await seedDefaultCategories(db);
   if (process.env.SEED_SUPER_ADMIN_PHONE)
     await bootstrapSuperAdmin(db, process.env.SEED_SUPER_ADMIN_PHONE);
   await client.query("COMMIT");
-  console.log(`Seed ${count} kampus Indonesia, settings, dan bootstrap opsional selesai.`);
+  console.log(
+    `Seed ${count} kampus Indonesia, settings, ${seededCategories} kategori awal, dan bootstrap opsional selesai.`,
+  );
 } catch (error) {
   await client.query("ROLLBACK");
   throw error;

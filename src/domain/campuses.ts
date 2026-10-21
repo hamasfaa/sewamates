@@ -27,3 +27,8 @@ export function filterCampuses<T extends Pick<CampusOption, "name" | "domains">>
   };
   return search ? matches.sort((a, b) => rank(a) - rank(b)) : matches;
 }
+
+// Compact label from the primary domain for cards: its.ac.id → ITS.
+export function campusLabel(campus: Pick<CampusOption, "name" | "domains">) {
+  return campus.domains[0]?.split(".")[0]?.toUpperCase() || campus.name;
+}

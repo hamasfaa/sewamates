@@ -10,8 +10,13 @@ import {
   jsonb,
   uniqueIndex,
   boolean,
+  smallint,
+  primaryKey,
+  customType,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
+import type { PickupHours } from "@/src/domain/pickup-points";
+import { ITEM_STATUSES } from "@/src/domain/listing";
 
 const created = () => timestamp("created_at", { withTimezone: true }).defaultNow().notNull();
 const updated = () => timestamp("updated_at", { withTimezone: true }).defaultNow().notNull();
@@ -212,7 +217,7 @@ export const uploadTickets = pgTable("upload_tickets", {
     .notNull()
     .references(() => users.id),
   path: text().notNull().unique(),
-  purpose: text({ enum: ["identity_card", "identity_selfie", "avatar"] }).notNull(),
+  purpose: text({ enum: ["identity_card", "identity_selfie", "avatar", "item_photo"] }).notNull(),
   contentType: text("content_type").notNull(),
   used: boolean().notNull().default(false),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
@@ -228,5 +233,95 @@ export const idempotencyKeys = pgTable("idempotency_keys", {
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   createdAt: created(),
 });
+export const itemStatus = pgEnum("item_status", ITEM_STATUSES);
+// Ranges are written with tstzrange(start, end, '[)') and read through lower()/upper().
+const tstzrange = customType<{ data: string }>({ dataType: () => "tstzrange" });
+export const categories = pgTable("categories", {
+  id: uuid().primaryKey().defaultRandom(),
+  name: text().notNull(),
+  active: boolean().notNull().default(true),
+  createdAt: created(),
+  updatedAt: updated(),
+});
+export const pickupPoints = pgTable("pickup_points", {
+  id: uuid().primaryKey().defaultRandom(),
+  campusId: uuid("campus_id")
+    .notNull()
+    .references(() => campuses.id),
+  name: text().notNull(),
+  description: text().notNull().default(""),
+  hours: jsonb("hours_json").notNull().$type<PickupHours>(),
+  active: boolean().notNull().default(true),
+  createdAt: created(),
+  updatedAt: updated(),
+});
+// search_tsv is a generated column maintained by PostgreSQL; queries reference it in SQL.
+export const items = pgTable("items", {
+  id: uuid().primaryKey().defaultRandom(),
+  ownerId: uuid("owner_id")
+    .notNull()
+    .references(() => users.id),
+  campusId: uuid("campus_id")
+    .notNull()
+    .references(() => campuses.id),
+  categoryId: uuid("category_id")
+    .notNull()
+    .references(() => categories.id),
+  title: text().notNull(),
+  description: text().notNull(),
+  itemValue: bigint("item_value", { mode: "number" }).notNull(),
+  pricePerDay: bigint("price_per_day", { mode: "number" }).notNull(),
+  deposit: bigint({ mode: "number" }).notNull(),
+  minDays: integer("min_days").notNull(),
+  maxDays: integer("max_days").notNull(),
+  status: itemStatus().notNull().default("menunggu_review"),
+  rejectReason: text("reject_reason"),
+  reviewedBy: uuid("reviewed_by").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+  submittedAt: timestamp("submitted_at", { withTimezone: true }).notNull().defaultNow(),
+  publishedAt: timestamp("published_at", { withTimezone: true }),
+  ratingAvg: integer("rating_avg").notNull().default(0),
+  ratingCount: integer("rating_count").notNull().default(0),
+  completedCount: integer("completed_count").notNull().default(0),
+  version: integer().notNull().default(1),
+  createdAt: created(),
+  updatedAt: updated(),
+});
+export const itemPhotos = pgTable("item_photos", {
+  id: uuid().primaryKey().defaultRandom(),
+  itemId: uuid("item_id")
+    .notNull()
+    .references(() => items.id),
+  path: text().notNull().unique(),
+  thumbPath: text("thumb_path").notNull().unique(),
+  sort: smallint().notNull(),
+  createdAt: created(),
+});
+export const itemPickupPoints = pgTable(
+  "item_pickup_points",
+  {
+    itemId: uuid("item_id")
+      .notNull()
+      .references(() => items.id),
+    pickupPointId: uuid("pickup_point_id")
+      .notNull()
+      .references(() => pickupPoints.id),
+  },
+  (t) => [primaryKey({ columns: [t.itemId, t.pickupPointId] })],
+);
+export const availabilityBlocks = pgTable(
+  "availability_blocks",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    itemId: uuid("item_id")
+      .notNull()
+      .references(() => items.id),
+    period: tstzrange().notNull(),
+    reason: text(),
+    createdAt: created(),
+  },
+  (t) => [index("availability_blocks_item").on(t.itemId)],
+);
 export type User = typeof users.$inferSelect;
 export type Role = User["role"];
+export type Item = typeof items.$inferSelect;

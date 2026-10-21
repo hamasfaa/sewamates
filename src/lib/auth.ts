@@ -1,15 +1,17 @@
 import "server-only";
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getDb } from "@/src/db";
 import { findSession, SESSION_COOKIE } from "@/src/services/auth-service";
 import { AppError } from "./errors";
 import type { Role } from "@/src/db/schema";
-export async function currentSession() {
+// Memoized per server render, so the layout and page share one session lookup.
+export const currentSession = cache(async () => {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token || !process.env.DATABASE_URL) return null;
   return findSession(getDb(), token);
-}
+});
 export async function requireActor(roles?: Role[]) {
   const row = await currentSession();
   if (!row) throw new AppError("UNAUTHORIZED", "Masuk dulu untuk melanjutkan.", 401);

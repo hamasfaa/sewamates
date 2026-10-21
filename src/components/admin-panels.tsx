@@ -2,7 +2,15 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight, BadgeCheck, Clock3, CircleAlert, Inbox, ShieldCheck } from "lucide-react";
+import {
+  ArrowRight,
+  BadgeCheck,
+  Clock3,
+  CircleAlert,
+  Inbox,
+  PackageSearch,
+  ShieldCheck,
+} from "lucide-react";
 import { api, useApi } from "@/src/lib/client-api";
 import { dateWib } from "@/src/lib/utils";
 import type { Settings } from "@/src/domain/settings";
@@ -11,7 +19,12 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { StatusChip } from "./ui/status-chip";
 export function AdminSummary() {
-  const query = useApi<{ pending: number; overdue: number }>("/api/admin/summary");
+  const query = useApi<{
+    pending: number;
+    overdue: number;
+    listingsPending: number;
+    listingsOverdue: number;
+  }>("/api/admin/summary");
   return (
     <>
       <p className="mb-2 text-xs font-bold tracking-widest text-primary uppercase">
@@ -26,7 +39,7 @@ export function AdminSummary() {
           {query.error}
         </p>
       )}
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {[
           {
             icon: BadgeCheck,
@@ -36,9 +49,21 @@ export function AdminSummary() {
           },
           {
             icon: Clock3,
-            title: "Melewati target",
+            title: "Identitas lewat target",
             value: query.data?.overdue,
             help: "Pengajuan di luar target pemeriksaan",
+          },
+          {
+            icon: PackageSearch,
+            title: "Listing menunggu review",
+            value: query.data?.listingsPending,
+            help: "Listing baru dan perubahan judul, foto, atau kategori",
+          },
+          {
+            icon: Clock3,
+            title: "Listing lewat target",
+            value: query.data?.listingsOverdue,
+            help: "Listing di luar target moderasi",
           },
         ].map(({ icon: Icon, title, value, help }) => (
           <Card key={title}>
@@ -49,19 +74,31 @@ export function AdminSummary() {
           </Card>
         ))}
       </div>
-      <Card className="mt-5">
-        <h2 className="text-lg">Antrean identitas</h2>
-        <p className="my-3 text-sm text-muted-foreground">
-          Bandingkan kartu, selfie, dan nama profil. Setiap keputusan dan akses bukti masuk ke audit
-          log.
-        </p>
-        <Button asChild>
-          <Link href="/admin/verifikasi">
-            Buka antrean
-            <ArrowRight size={16} />
-          </Link>
-        </Button>
-      </Card>
+      <div className="mt-5 grid gap-5 md:grid-cols-2">
+        {[
+          {
+            title: "Antrean identitas",
+            text: "Bandingkan kartu, selfie, dan nama profil. Setiap keputusan dan akses bukti masuk ke audit log.",
+            href: "/admin/verifikasi",
+          },
+          {
+            title: "Moderasi listing",
+            text: "Cocokkan foto dengan judul, kategori, dan kewajaran nilai barang sebelum listing tayang.",
+            href: "/admin/listing",
+          },
+        ].map(({ title, text, href }) => (
+          <Card key={href}>
+            <h2 className="text-lg">{title}</h2>
+            <p className="my-3 text-sm text-muted-foreground">{text}</p>
+            <Button asChild>
+              <Link href={href}>
+                Buka antrean
+                <ArrowRight size={16} />
+              </Link>
+            </Button>
+          </Card>
+        ))}
+      </div>
     </>
   );
 }
@@ -338,6 +375,14 @@ export function AuditPanel() {
                 "identity_viewed",
                 "identity_diterima",
                 "identity_ditolak",
+                "item_disetujui",
+                "item_ditolak",
+                "category_created",
+                "category_updated",
+                "category_deleted",
+                "pickup_point_created",
+                "pickup_point_updated",
+                "pickup_point_deleted",
                 "settings_updated",
                 "bootstrap_super_admin",
               ].map((value) => (
@@ -444,6 +489,35 @@ const basicSettings: {
   },
   { key: "admin_open_hour", label: "Jam buka admin", suffix: "WIB", min: 0, max: 23 },
   { key: "admin_close_hour", label: "Jam tutup admin", suffix: "WIB", min: 1, max: 24 },
+  {
+    key: "listing_sla_hours",
+    label: "Target moderasi listing",
+    suffix: "jam",
+    min: 1,
+    max: 168,
+  },
+  {
+    key: "deposit_min_bp",
+    label: "Deposit minimal dari nilai barang",
+    suffix: "bp (1000 = 10%)",
+    min: 1,
+    max: 10000,
+  },
+  {
+    key: "deposit_max_bp",
+    label: "Deposit maksimal dari nilai barang",
+    suffix: "bp (5000 = 50%)",
+    min: 1,
+    max: 10000,
+  },
+  { key: "deposit_cap", label: "Batas atas deposit", suffix: "rupiah", min: 1000, max: 100000000 },
+  {
+    key: "commission_rate_bp",
+    label: "Komisi platform",
+    suffix: "bp (1000 = 10%)",
+    min: 0,
+    max: 10000,
+  },
 ];
 export function SettingsPanel() {
   const query = useApi<Settings>("/api/admin/settings");

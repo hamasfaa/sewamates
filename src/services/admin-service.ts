@@ -3,6 +3,7 @@ import type { Database, Executor } from "@/src/db";
 import {
   adminAuditLogs,
   identityVerifications,
+  items,
   notifications,
   users,
   type User,
@@ -17,6 +18,14 @@ export function requireAdmin(actor: User) {
     (actor.role === "admin" || actor.role === "super_admin") && actor.accountStatus === "aktif",
     "FORBIDDEN",
     "Akses khusus admin.",
+    403,
+  );
+}
+export function requireSuperAdmin(actor: User) {
+  assert(
+    actor.role === "super_admin" && actor.accountStatus === "aktif",
+    "FORBIDDEN",
+    "Hanya super admin yang dapat mengubah pengaturan ini.",
     403,
   );
 }
@@ -144,7 +153,14 @@ export async function adminSummary(db: Executor, actor: User) {
     })
     .from(identityVerifications)
     .where(eq(identityVerifications.status, "menunggu"));
-  return result;
+  const [listings] = await db
+    .select({
+      pending: sql<number>`count(*)::int`,
+      overdue: sql<number>`count(*) filter (where ${items.submittedAt} < ${new Date(Date.now() - rules.listing_sla_hours * 3600000)})::int`,
+    })
+    .from(items)
+    .where(eq(items.status, "menunggu_review"));
+  return { ...result, listingsPending: listings.pending, listingsOverdue: listings.overdue };
 }
 export async function auditLogs(
   db: Executor,

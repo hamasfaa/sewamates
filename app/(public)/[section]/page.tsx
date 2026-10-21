@@ -1,30 +1,21 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Search, PackagePlus, MessageCircle, ArrowLeftRight, ShieldCheck } from "lucide-react";
+import { MessageCircle, ArrowLeftRight, ShieldCheck } from "lucide-react";
 import { Card } from "@/src/components/ui/card";
 import { Button } from "@/src/components/ui/button";
+// Chat and transactions open in Sprint 3; search and listing have their own routes.
 const upcoming = {
-  cari: {
-    icon: Search,
-    title: "Etalase sedang disiapkan",
-    description:
-      "Barang dari teman kampus akan muncul di sini. Lengkapi akunmu agar siap saat etalase dibuka.",
-  },
-  sewakan: {
-    icon: PackagePlus,
-    title: "Barangmu bisa lebih bermanfaat",
-    description:
-      "Fitur menyewakan sedang disiapkan. Mulai dari verifikasi identitas dan rekening pencairanmu dulu, yuk.",
-  },
   chat: {
     icon: MessageCircle,
     title: "Teman pinjam, tinggal sapa",
-    description: "Percakapan dengan teman transaksimu akan tersedia saat etalase dibuka.",
+    description:
+      "Chat dengan pemilik barang dibuka bersama pengajuan sewa. Sambil menunggu, lihat-lihat barang dari teman kampus dulu.",
   },
   transaksi: {
     icon: ArrowLeftRight,
     title: "Cerita sewamu dimulai di sini",
-    description: "Nantinya kamu bisa memantau barang yang disewa dan disewakan di halaman ini.",
+    description:
+      "Pengajuan sewa sedang disiapkan. Nantinya kamu bisa memantau barang yang disewa dan disewakan di halaman ini.",
   },
 };
 export default async function Page({ params }: { params: Promise<{ section: string }> }) {
@@ -54,6 +45,10 @@ export default async function Page({ params }: { params: Promise<{ section: stri
                   rekening.
                 </p>
                 <p>
+                  Listing barang ditinjau admin sebelum tampil. Pasang hanya barang milikmu sendiri
+                  dengan foto dan deskripsi kondisi yang jujur.
+                </p>
+                <p>
                   Dalam tahap uji coba ini, gunakan data pengujian. Transaksi sewa dan pembayaran
                   belum dibuka.
                 </p>
@@ -68,6 +63,10 @@ export default async function Page({ params }: { params: Promise<{ section: stri
                   Nomor HP tidak ditampilkan di profil publik. Foto identitas hanya diakses admin
                   melalui tautan sementara untuk pemeriksaan. Nomor rekening disimpan terenkripsi
                   dan ditampilkan tersamarkan.
+                </p>
+                <p>
+                  Foto listing tampil publik setelah disetujui admin. Foto dikecilkan di perangkatmu
+                  dan metadata seperti lokasi dihapus sebelum diunggah.
                 </p>
                 <p>
                   SewaMates menyimpan cookie sesi untuk menjaga login. Kamu dapat melihat dan
@@ -97,7 +96,7 @@ export default async function Page({ params }: { params: Promise<{ section: stri
           {value.description}
         </p>
         <Button asChild className="mt-7">
-          <Link href="/profil">Siapkan akunmu</Link>
+          <Link href="/cari">Lihat barang</Link>
         </Button>
       </Card>
     </div>

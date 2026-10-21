@@ -2,7 +2,7 @@
 
 Tanggal pengerjaan: 21 Oktober 2026.
 
-**Status: implementasi lokal tersedia; Definition of Done belum penuh karena integrasi/deployment staging dan uji perangkat nyata belum diverifikasi. Sprint 2 belum dimulai.**
+**Status: implementasi lokal tersedia; Definition of Done belum penuh karena integrasi/deployment staging dan uji perangkat nyata belum diverifikasi. Atas permintaan pemilik aplikasi, [Sprint 2](02-marketplace.md) dikerjakan pada 21 Oktober 2026 sementara daftar penyelesaian di bawah tetap terbuka.**
 
 | Backlog                   | Hasil implementasi                                                                                                                           |
 | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -46,4 +46,4 @@ Tanggal pengerjaan: 21 Oktober 2026.
 - [ ] Uji Chrome Android/Safari iOS dan desktop sesuai DoD PM.
 - [ ] Review kode oleh reviewer tim.
 
-Langkah konfigurasi tersedia di [setup Sprint 1](../setup-sprint-1.md). Jangan menandai Sprint 1 selesai atau mulai Sprint 2 sebelum sisa DoD disepakati.
+Langkah konfigurasi tersedia di [setup Sprint 1](../setup-sprint-1.md). Jangan menandai Sprint 1 selesai sebelum sisa DoD disepakati.

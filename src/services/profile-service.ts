@@ -35,6 +35,14 @@ export function requireActive(user: User) {
     403,
   );
 }
+export function requireVerified(user: User) {
+  assert(
+    user.verificationStatus === "terverifikasi",
+    "VERIFICATION_REQUIRED",
+    "Verifikasi identitasmu dulu untuk melanjutkan.",
+    403,
+  );
+}
 export async function myProfile(db: Executor, user: User) {
   const [campus] = user.campusId
     ? await db.select(campusFields).from(campuses).where(eq(campuses.id, user.campusId))

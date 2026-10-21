@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   BadgeCheck,
+  PackageSearch,
   ScrollText,
   Settings2,
   Shield,
@@ -20,7 +21,8 @@ export function AdminLayout({
   const pathname = usePathname();
   return (
     <div className="page-container grid gap-6 py-7 lg:grid-cols-[225px_1fr] lg:py-10">
-      <aside>
+      {/* min-w-0 keeps the horizontally scrolling menu inside narrow screens. */}
+      <aside className="min-w-0">
         <div className="mb-5 flex items-center gap-3 px-2">
           <span className="rounded-xl bg-primary p-2 text-white">
             <Shield size={20} />
@@ -36,6 +38,7 @@ export function AdminLayout({
           {[
             { href: "/admin", label: "Ringkasan", icon: LayoutDashboard },
             { href: "/admin/verifikasi", label: "Verifikasi identitas", icon: BadgeCheck },
+            { href: "/admin/listing", label: "Moderasi listing", icon: PackageSearch },
             { href: "/admin/audit", label: "Audit log", icon: ScrollText },
             ...(superAdmin
               ? [{ href: "/admin/pengaturan", label: "Pengaturan", icon: Settings2 }]
@@ -44,9 +47,13 @@ export function AdminLayout({
             <Link
               key={href}
               href={href}
+              aria-current={pathname === href ? "page" : undefined}
               className={cn(
                 "flex min-h-12 shrink-0 items-center gap-3 rounded-xl px-4 text-sm font-semibold",
-                pathname === href ? "bg-primary text-white" : "text-muted-foreground hover:bg-card",
+                pathname === href ||
+                  (href === "/admin/pengaturan" && pathname.startsWith(`${href}/`))
+                  ? "bg-primary text-white"
+                  : "text-muted-foreground hover:bg-card",
               )}
             >
               <Icon size={18} />

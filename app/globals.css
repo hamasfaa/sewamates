@@ -129,82 +129,87 @@ a {
   width: min(1200px, calc(100% - 40px));
   margin-inline: auto;
 }
-.tabular {
-  font-variant-numeric: tabular-nums;
+/* Component classes sit in a layer so Tailwind utilities on the same element can override
+   them (unlayered CSS always beats layered utilities, e.g. "input pl-11" lost its padding). */
+@layer components {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  .text-muted {
+    color: var(--color-text-muted);
+  }
+  .card-shadow {
+    box-shadow: var(--shadow-card);
+  }
+  .brand-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    margin-left: 3px;
+    border-radius: 50%;
+    background: var(--color-accent);
+  }
+  .hero {
+    background: linear-gradient(115deg, var(--color-primary), var(--color-navy));
+  }
+  .form-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .field-label {
+    display: block;
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .input {
+    display: flex;
+    min-height: 48px;
+    width: 100%;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-control);
+    background: var(--color-surface);
+    padding: 12px 14px;
+    color: var(--color-text);
+  }
+  .input::placeholder {
+    color: var(--color-text-muted);
+  }
+  .input:disabled {
+    background: var(--color-surface-2);
+    opacity: 0.7;
+  }
+  .help {
+    margin-top: 6px;
+    font-size: 14px;
+    color: var(--color-text-muted);
+  }
+  .notice {
+    border-radius: 12px;
+    padding: 14px 16px;
+    font-size: 14px;
+    background: var(--color-info-bg);
+    color: var(--color-info);
+  }
+  .notice-error {
+    background: var(--color-danger-bg);
+    color: var(--color-danger);
+  }
+  .notice-success {
+    background: var(--color-success-bg);
+    color: var(--color-success);
+  }
+  .skeleton {
+    background: var(--color-surface-2);
+    border-radius: 12px;
+    animation: pulse 1.8s ease-in-out infinite;
+  }
 }
-.text-muted {
-  color: var(--color-text-muted);
-}
-.card-shadow {
-  box-shadow: var(--shadow-card);
-}
-.brand-dot {
-  display: inline-block;
-  width: 7px;
-  height: 7px;
-  margin-left: 3px;
-  border-radius: 50%;
-  background: var(--color-accent);
-}
-.hero {
-  background: linear-gradient(115deg, var(--color-primary), var(--color-navy));
-}
-.form-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-.field-label {
-  display: block;
-  font-size: 14px;
-  font-weight: 700;
-  margin-bottom: 8px;
-}
-.input {
-  display: flex;
-  min-height: 48px;
-  width: 100%;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-  background: var(--color-surface);
-  padding: 12px 14px;
-  color: var(--color-text);
-}
-.input::placeholder {
-  color: var(--color-text-muted);
-}
+/* Unlayered on purpose: keeps the soft input focus ring above the global :focus-visible. */
 .input:focus {
   border-color: var(--color-primary);
   outline: 3px solid var(--color-sky-soft);
-}
-.input:disabled {
-  background: var(--color-surface-2);
-  opacity: 0.7;
-}
-.help {
-  margin-top: 6px;
-  font-size: 14px;
-  color: var(--color-text-muted);
-}
-.notice {
-  border-radius: 12px;
-  padding: 14px 16px;
-  font-size: 14px;
-  background: var(--color-info-bg);
-  color: var(--color-info);
-}
-.notice-error {
-  background: var(--color-danger-bg);
-  color: var(--color-danger);
-}
-.notice-success {
-  background: var(--color-success-bg);
-  color: var(--color-success);
-}
-.skeleton {
-  background: var(--color-surface-2);
-  border-radius: 12px;
-  animation: pulse 1.8s ease-in-out infinite;
 }
 @keyframes pulse {
   50% {

@@ -3,38 +3,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import Image from "next/image";
 import { ImagePlus, LoaderCircle, CheckCircle2 } from "lucide-react";
 import { api } from "@/src/lib/client-api";
-
-async function compress(file: File) {
-  if (!["image/jpeg", "image/png", "image/webp"].includes(file.type))
-    throw new Error("Pilih foto JPEG, PNG, atau WebP.");
-  if (file.size > 5 * 1024 * 1024)
-    throw new Error("Ukuran foto maksimal 5 MB. Pilih foto yang lebih kecil.");
-  const url = URL.createObjectURL(file);
-  try {
-    const image = new window.Image();
-    image.src = url;
-    await image.decode();
-    const scale = Math.min(1, 1600 / Math.max(image.width, image.height));
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.round(image.width * scale);
-    canvas.height = Math.round(image.height * scale);
-    const context = canvas.getContext("2d");
-    if (!context) throw new Error("Browser tidak mendukung pemrosesan foto.");
-    context.fillStyle = "white";
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    context.drawImage(image, 0, 0, canvas.width, canvas.height);
-    const blob = await new Promise<Blob>((resolve, reject) =>
-      canvas.toBlob(
-        (blob) => (blob ? resolve(blob) : reject(new Error("Foto tidak dapat diproses."))),
-        "image/jpeg",
-        0.85,
-      ),
-    );
-    return blob;
-  } finally {
-    URL.revokeObjectURL(url);
-  }
-}
+import { compressImage } from "@/src/lib/image";
 export function PhotoUpload({
   purpose,
   label,
@@ -63,7 +32,7 @@ export function PhotoUpload({
     setError("");
     onUploaded("");
     try {
-      const blob = await compress(file);
+      const blob = await compressImage(file);
       setPreview(URL.createObjectURL(blob));
       const ticket = await api<{ path: string; signedUrl: string }>("/api/uploads/sign", {
         method: "POST",

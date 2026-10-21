@@ -5,7 +5,9 @@ import Image from "next/image";
 import { UserRound, CalendarDays } from "lucide-react";
 import { getDb } from "@/src/db";
 import { users } from "@/src/db/schema";
+import { ownerListings } from "@/src/services/search-service";
 import { Card } from "@/src/components/ui/card";
+import { ItemCard } from "@/src/components/item-card";
 import { VerificationChip } from "@/src/components/ui/status-chip";
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -23,9 +25,10 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
     .from(users)
     .where(and(eq(users.id, id), eq(users.accountStatus, "aktif")));
   if (!user) notFound();
+  const listings = await ownerListings(getDb(), id);
   return (
-    <div className="page-container max-w-2xl py-12">
-      <Card className="text-center">
+    <div className="page-container max-w-4xl py-12">
+      <Card className="mx-auto max-w-2xl text-center">
         {user.avatarUrl ? (
           <Image
             unoptimized
@@ -62,6 +65,20 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
           </div>
         </div>
       </Card>
+      {listings.length > 0 && (
+        <section className="mt-10" aria-labelledby="owner-listings">
+          <h2 id="owner-listings" className="mb-4 text-xl">
+            Barang yang disewakan
+          </h2>
+          <ul className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
+            {listings.map((item) => (
+              <li key={item.id} className="flex min-w-0">
+                <ItemCard item={item} className="w-full" />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   );
 }

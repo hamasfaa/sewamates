@@ -24,6 +24,17 @@ export function StatusChip({
     </span>
   );
 }
+const itemStatuses: Record<string, [keyof typeof tones, string]> = {
+  menunggu_review: ["warning", "Menunggu review"],
+  aktif: ["success", "Aktif"],
+  ditolak: ["danger", "Ditolak"],
+  dijeda: ["neutral", "Dijeda"],
+  diarsipkan: ["neutral", "Diarsipkan"],
+};
+export function ItemStatusChip({ status }: { status: string }) {
+  const [tone, label] = itemStatuses[status] || itemStatuses.menunggu_review;
+  return <StatusChip tone={tone}>{label}</StatusChip>;
+}
 export function VerificationChip({ status }: { status: string }) {
   const values: Record<string, [keyof typeof tones, string]> = {
     belum: ["neutral", "Belum diverifikasi"],
