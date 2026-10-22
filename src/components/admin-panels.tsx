@@ -10,8 +10,11 @@ import {
   Inbox,
   PackageSearch,
   ShieldCheck,
+  Wallet,
 } from "lucide-react";
 import { api, useApi } from "@/src/lib/client-api";
+import { useLiveApi, type Wire } from "@/src/lib/live-api";
+import type { adminSummary } from "@/src/services/admin-service";
 import { dateWib } from "@/src/lib/utils";
 import type { Settings } from "@/src/domain/settings";
 import { Card } from "./ui/card";
@@ -19,12 +22,10 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { StatusChip } from "./ui/status-chip";
 export function AdminSummary() {
-  const query = useApi<{
-    pending: number;
-    overdue: number;
-    listingsPending: number;
-    listingsOverdue: number;
-  }>("/api/admin/summary");
+  const query = useLiveApi<Wire<Awaited<ReturnType<typeof adminSummary>>>>(
+    "/api/admin/summary",
+    5000,
+  );
   return (
     <>
       <p className="mb-2 text-xs font-bold tracking-widest text-primary uppercase">
@@ -32,14 +33,14 @@ export function AdminSummary() {
       </p>
       <h1 className="text-3xl">Jaga kepercayaan, bareng.</h1>
       <p className="mt-3 mb-7 text-sm text-muted-foreground">
-        Mulai dari identitas yang jelas dan keputusan yang tercatat.
+        Pantau verifikasi identitas, moderasi listing, dan pembayaran dari satu tempat.
       </p>
       {query.error && (
         <p className="notice notice-error mb-5" role="alert">
           {query.error}
         </p>
       )}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {[
           {
             icon: BadgeCheck,
@@ -65,6 +66,18 @@ export function AdminSummary() {
             value: query.data?.listingsOverdue,
             help: "Listing di luar target moderasi",
           },
+          {
+            icon: Wallet,
+            title: "Pembayaran menunggu verifikasi",
+            value: query.data?.paymentsPending,
+            help: "Jumlah bukti transfer yang perlu diperiksa",
+          },
+          {
+            icon: Clock3,
+            title: "Pembayaran lewat target",
+            value: query.data?.paymentsOverdue,
+            help: "Bukti transfer yang melewati target verifikasi",
+          },
         ].map(({ icon: Icon, title, value, help }) => (
           <Card key={title}>
             <Icon size={24} className="mb-5 text-primary" />
@@ -74,7 +87,7 @@ export function AdminSummary() {
           </Card>
         ))}
       </div>
-      <div className="mt-5 grid gap-5 md:grid-cols-2">
+      <div className="mt-5 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
         {[
           {
             title: "Antrean identitas",
@@ -86,12 +99,17 @@ export function AdminSummary() {
             text: "Cocokkan foto dengan judul, kategori, dan kewajaran nilai barang sebelum listing tayang.",
             href: "/admin/listing",
           },
+          {
+            title: "Antrean pembayaran",
+            text: "Cocokkan setiap bukti transfer dengan mutasi rekening platform, lalu terima atau tolak bukti.",
+            href: "/admin/pembayaran",
+          },
         ].map(({ title, text, href }) => (
-          <Card key={href}>
+          <Card key={href} className="flex min-w-0 flex-col">
             <h2 className="text-lg">{title}</h2>
             <p className="my-3 text-sm text-muted-foreground">{text}</p>
-            <Button asChild>
-              <Link href={href}>
+            <Button asChild className="mt-auto self-start">
+              <Link href={href} aria-label={`Buka ${title.toLowerCase()}`}>
                 Buka antrean
                 <ArrowRight size={16} />
               </Link>
