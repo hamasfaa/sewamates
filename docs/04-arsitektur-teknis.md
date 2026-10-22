@@ -277,6 +277,8 @@ POST   /api/telegram/webhook            (update dari Telegram; wajib header X-Te
 
 Rute Sprint 3 dijalankan oleh `transaction-routes.ts`. `state` daftar rental menerima `aktif|selesai|dibatalkan`; aksi rental/keputusan pembayaran wajib `version`. Keputusan bukti memakai `decision: diterima|ditolak` disertai `verifiedAmount` atau `reason`. POST `/api/reports` pada Sprint 3 menerima `{messageId,reason}`; pengelolaan laporan umum mengikuti Sprint 5. Rute serah terima/pencairan/sengketa pada daftar target di atas belum diimplementasikan pada Sprint 3.
 
+GET `/api/admin/payments` menerima `q` (kode transaksi/nama pengirim, maksimal 100 karakter) dan `sla=all|overdue|on_time`. Filter diterapkan sebelum batas 100 bukti, dengan urutan bukti terlama. `/api/admin/summary` menyertakan `paymentsPending` dan `paymentsOverdue` dari seluruh bukti menunggu, untuk badge antrean yang diperbarui setiap 5 detik. Templat alasan penolakan mengisi teks yang tetap dapat disunting; server tetap memvalidasi alasan dan hak admin.
+
 ### Alur Telegram bot
 
 ```

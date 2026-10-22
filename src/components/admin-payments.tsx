@@ -9,10 +9,29 @@ import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 type Detail = Wire<Awaited<ReturnType<typeof paymentDetail>>>;
+const REJECTION_REASONS = [
+  "Dana belum ditemukan pada mutasi rekening platform.",
+  "Bukti transfer tidak terbaca. Unggah ulang bukti yang jelas.",
+  "Rekening tujuan tidak sesuai dengan rekening platform yang dipilih.",
+  "Bukti transfer duplikat atau sudah digunakan.",
+  "Rincian transfer tidak sesuai dengan mutasi rekening platform.",
+];
+function taskAge(createdAt: string, now: number) {
+  if (!now) return "—";
+  const minutes = Math.max(0, Math.floor((now - Date.parse(createdAt)) / 60000));
+  if (!minutes) return "Baru saja";
+  if (minutes < 60) return `${minutes} menit`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} jam ${minutes % 60} menit`;
+  return `${Math.floor(hours / 24)} hari ${hours % 24} jam`;
+}
 export function AdminPayments({ actorId }: { actorId: string }) {
   const now = useClock();
+  const [search, setSearch] = useState(""),
+    [q, setQuery] = useState(""),
+    [sla, setSla] = useState("all");
   const query = useLiveApi<Wire<Awaited<ReturnType<typeof paymentQueue>>>>(
-      "/api/admin/payments",
+      `/api/admin/payments?${new URLSearchParams({ q, sla })}`,
       5000,
     ),
     [selected, setSelected] = useState("");
@@ -28,17 +47,121 @@ export function AdminPayments({ actorId }: { actorId: string }) {
           {query.error}
         </p>
       )}
-      <div className="grid min-w-0 gap-5 xl:grid-cols-[280px_minmax(0,1fr)]">
-        <Card className="min-w-0 p-3">
+      <div className="min-w-0 space-y-5">
+        <Card className="min-w-0">
+          <form
+            className="mb-5 grid gap-3 sm:grid-cols-[minmax(0,1fr)_200px_auto]"
+            onSubmit={(event) => {
+              event.preventDefault();
+              setQuery(search.trim());
+            }}
+          >
+            <div className="min-w-0">
+              <label className="field-label" htmlFor="payment-search">
+                Cari pembayaran
+              </label>
+              <Input
+                id="payment-search"
+                type="search"
+                placeholder="Kode transaksi atau nama pengirim"
+                maxLength={100}
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+              />
+            </div>
+            <div>
+              <label className="field-label" htmlFor="payment-sla">
+                Target verifikasi
+              </label>
+              <select
+                id="payment-sla"
+                className="input"
+                value={sla}
+                onChange={(event) => setSla(event.target.value)}
+              >
+                <option value="all">Semua target</option>
+                <option value="overdue">Lewat target</option>
+                <option value="on_time">Dalam batas waktu</option>
+              </select>
+            </div>
+            <Button type="submit" className="self-end">
+              Cari
+            </Button>
+          </form>
           {!query.data && !query.error && (
             <div className="skeleton h-48" role="status" aria-label="Memuat antrean pembayaran" />
           )}
           {query.data?.length === 0 && (
             <p className="py-10 text-center text-sm text-muted-foreground">
-              Tidak ada bukti yang menunggu verifikasi.
+              {q || sla !== "all"
+                ? "Tidak ada bukti yang cocok dengan filter."
+                : "Tidak ada bukti yang menunggu verifikasi."}
             </p>
           )}
-          <ul className="space-y-2">
+          {Boolean(query.data?.length) && (
+            <p className="mb-3 text-xs text-muted-foreground" role="status">
+              Menampilkan {query.data?.length} bukti, diurutkan dari yang paling lama.
+              {query.data?.length === 100 && " Gunakan pencarian untuk mempersempit hasil."}
+            </p>
+          )}
+          <div className="hidden overflow-x-auto lg:block">
+            <table className="w-full text-left text-sm" aria-label="Antrean verifikasi pembayaran">
+              <thead className="border-b border-border text-xs text-muted-foreground">
+                <tr>
+                  {[
+                    "Transaksi",
+                    "Pengirim",
+                    "Nominal klaim",
+                    "Masuk",
+                    "Umur tugas",
+                    "Target",
+                    "Aksi",
+                  ].map((label) => (
+                    <th key={label} scope="col" className="p-3 font-semibold">
+                      {label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {query.data?.map((row) => (
+                  <tr
+                    key={row.payment.id}
+                    className={selected === row.payment.id ? "bg-secondary" : ""}
+                  >
+                    <td className="p-3 font-bold">{row.publicCode}</td>
+                    <td className="p-3 break-words [overflow-wrap:anywhere]">
+                      {row.payment.senderName}
+                    </td>
+                    <td className="tabular p-3 font-semibold">
+                      {rupiah(row.payment.claimedAmount)}
+                    </td>
+                    <td className="p-3 text-xs">
+                      <time dateTime={row.payment.createdAt}>{dateWib(row.payment.createdAt)}</time>
+                    </td>
+                    <td className="p-3 text-xs">{taskAge(row.payment.createdAt, now)}</td>
+                    <td className="p-3 text-xs">
+                      <time dateTime={row.payment.targetAt}>{dateWib(row.payment.targetAt)}</time>
+                      {Date.parse(row.payment.targetAt) < now && (
+                        <p className="mt-1 font-bold text-destructive">Lewat target verifikasi</p>
+                      )}
+                    </td>
+                    <td className="p-3">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        aria-label={`Periksa ${row.publicCode} dari ${row.payment.senderName}`}
+                        onClick={() => setSelected(row.payment.id)}
+                      >
+                        Periksa
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <ul className="space-y-2 lg:hidden">
             {query.data?.map((row) => (
               <li key={row.payment.id}>
                 <button
@@ -47,8 +170,12 @@ export function AdminPayments({ actorId }: { actorId: string }) {
                 >
                   <p className="text-xs text-muted-foreground">{row.publicCode}</p>
                   <p className="mt-1 font-bold">{rupiah(row.payment.claimedAmount)}</p>
+                  <p className="mt-1 text-sm break-words">{row.payment.senderName}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {dateWib(row.payment.createdAt)}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Menunggu {taskAge(row.payment.createdAt, now)}
                   </p>
                   {Date.parse(row.payment.targetAt) < now && (
                     <p className="mt-2 text-xs font-bold text-destructive">
@@ -91,6 +218,7 @@ function PaymentReview({
   const query = useApi<Detail>(`/api/admin/payments/${id}`),
     [amount, setAmount] = useState(""),
     [reason, setReason] = useState(""),
+    [reasonTemplate, setReasonTemplate] = useState(""),
     [checked, setChecked] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
@@ -241,6 +369,29 @@ function PaymentReview({
                 />
                 Saya sudah mencocokkan rekening, kode transaksi, nominal, dan mutasi asli.
               </label>
+              <div>
+                <label className="field-label" htmlFor="payment-reject-template">
+                  Templat alasan penolakan
+                </label>
+                <select
+                  id="payment-reject-template"
+                  className="input"
+                  value={reasonTemplate}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setReasonTemplate(value);
+                    if (value && value !== "custom") setReason(value);
+                  }}
+                >
+                  <option value="">Pilih alasan penolakan</option>
+                  {REJECTION_REASONS.map((reason) => (
+                    <option key={reason} value={reason}>
+                      {reason}
+                    </option>
+                  ))}
+                  <option value="custom">Alasan lainnya</option>
+                </select>
+              </div>
               <div>
                 <label className="field-label" htmlFor="payment-reject-reason">
                   Alasan penolakan

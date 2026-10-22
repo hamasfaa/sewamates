@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { rentalDetail, rentalList } from "@/src/services/rental-service";
 import { useClock, useLiveApi, type Wire } from "@/src/lib/live-api";
 import { api } from "@/src/lib/client-api";
@@ -66,13 +66,16 @@ export function Countdown({ target, label }: { target: string; label: string }) 
     </p>
   );
 }
-export async function uploadPrivateFile(file: File, purpose: "payment_proof" | "chat_image") {
+function validatePrivateFile(file: File, purpose: "payment_proof" | "chat_image") {
   const allowed =
     purpose === "payment_proof"
       ? ["image/jpeg", "image/png", "image/webp", "application/pdf"]
       : ["image/jpeg", "image/png", "image/webp"];
   if (!allowed.includes(file.type) || file.size === 0 || file.size > 5 * 1024 * 1024)
     throw new Error("Pilih file yang didukung dengan ukuran maksimal 5 MB.");
+}
+export async function uploadPrivateFile(file: File, purpose: "payment_proof" | "chat_image") {
+  validatePrivateFile(file, purpose);
   const ticket = await api<{ path: string; signedUrl: string }>("/api/uploads/sign", {
     method: "POST",
     body: JSON.stringify({ purpose, contentType: file.type, size: file.size }),
@@ -190,9 +193,24 @@ function PaymentForm({ data, complete }: { data: Detail; complete: () => Promise
     [amount, setAmount] = useState(""),
     [time, setTime] = useState(""),
     [file, setFile] = useState<File | null>(null),
+    [dragging, setDragging] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const chosen = data.accounts.find((a) => a.id === account);
+  const fileInput = useRef<HTMLInputElement>(null);
+  function chooseFile(files: File[]) {
+    if (busy) return;
+    try {
+      if (files.length !== 1) throw new Error("Pilih satu bukti transfer untuk setiap unggahan.");
+      validatePrivateFile(files[0], "payment_proof");
+      setFile(files[0]);
+      setError("");
+    } catch (error) {
+      setFile(null);
+      if (fileInput.current) fileInput.current.value = "";
+      setError((error as Error).message);
+    }
+  }
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     setBusy(true);
@@ -211,6 +229,7 @@ function PaymentForm({ data, complete }: { data: Detail; complete: () => Promise
         }),
       });
       setFile(null);
+      if (fileInput.current) fileInput.current.value = "";
       setAmount("");
       await complete();
     } catch (error) {
@@ -298,18 +317,52 @@ function PaymentForm({ data, complete }: { data: Detail; complete: () => Promise
             onChange={(e) => setTime(e.target.value)}
           />
         </div>
-        <div>
+        <div
+          role="group"
+          aria-label="Area unggah bukti transfer"
+          className={cn(
+            "rounded-xl border-2 border-dashed p-4 transition-colors",
+            dragging ? "border-primary bg-secondary" : "border-border",
+          )}
+          onDragOver={(event) => {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = busy ? "none" : "copy";
+            if (!busy) setDragging(true);
+          }}
+          onDragLeave={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget as Node | null))
+              setDragging(false);
+          }}
+          onDrop={(event) => {
+            event.preventDefault();
+            setDragging(false);
+            chooseFile(Array.from(event.dataTransfer.files));
+          }}
+        >
           <label className="field-label" htmlFor="payment-file">
             Bukti transfer
           </label>
           <Input
             id="payment-file"
+            ref={fileInput}
             type="file"
             accept="image/jpeg,image/png,image/webp,application/pdf"
-            required
-            onChange={(e) => setFile(e.target.files?.[0] || null)}
+            required={!file}
+            disabled={busy}
+            aria-describedby="payment-file-help"
+            onChange={(event) => {
+              if (event.target.files?.length) chooseFile(Array.from(event.target.files));
+            }}
           />
-          <p className="help">JPEG, PNG, WebP, atau PDF; maksimal 5 MB.</p>
+          <p id="payment-file-help" className="help">
+            Tarik satu file ke area ini atau pilih dari perangkat. JPEG, PNG, WebP, atau PDF;
+            maksimal 5 MB.
+          </p>
+          {file && (
+            <p className="mt-2 text-sm break-all" role="status">
+              File dipilih: <strong>{file.name}</strong>
+            </p>
+          )}
         </div>
         {error && (
           <p className="notice notice-error" role="alert">
@@ -320,6 +373,45 @@ function PaymentForm({ data, complete }: { data: Detail; complete: () => Promise
           {busy ? "Mengunggah…" : "Kirim bukti transfer"}
         </Button>
       </form>
+    </Card>
+  );
+}
+function PaymentSummary({ data, sticky }: { data: Detail; sticky: boolean }) {
+  const r = data.rental;
+  return (
+    <Card className={cn("min-w-0", sticky && "lg:sticky lg:top-24 lg:order-last lg:self-start")}>
+      <h3 className="mb-5 text-xl">Rincian pembayaran</h3>
+      <CostSummary
+        pricePerDay={r.pricePerDay}
+        days={r.days}
+        deposit={r.deposit}
+        uniqueCode={r.uniqueCode ?? undefined}
+      />
+      <div className="mt-4 border-t border-border pt-4">
+        <p className="text-sm">
+          Sudah diterima: <strong>{rupiah(r.amountReceived)}</strong>
+        </p>
+        {data.totals.remaining > 0 && (
+          <p className="mt-2 text-lg font-bold">Kurang {rupiah(data.totals.remaining)}</p>
+        )}
+        {data.totals.overpayment > 0 && (
+          <p className="help">
+            Kelebihan {rupiah(data.totals.overpayment)} ikut dikembalikan bersama deposit.
+          </p>
+        )}
+      </div>
+      {r.uniqueCode !== null && (
+        <div className="notice mt-4">
+          <p>
+            Kode unik:{" "}
+            <strong className="tabular text-xl">{String(r.uniqueCode).padStart(3, "0")}</strong>
+          </p>
+          <div className="mt-2">
+            <CopyButton value={String(r.amountDue)} label="Salin total tagihan" />
+          </div>
+          <p className="help">Tulis {r.publicCode} di berita transfer jika tersedia.</p>
+        </div>
+      )}
     </Card>
   );
 }
@@ -496,41 +588,16 @@ function RentalPanel({ id }: { id: string }) {
           </p>
         )}
       </Card>
-      <Card className="min-w-0">
-        <h3 className="mb-5 text-xl">Rincian pembayaran</h3>
-        <CostSummary
-          pricePerDay={r.pricePerDay}
-          days={r.days}
-          deposit={r.deposit}
-          uniqueCode={r.uniqueCode ?? undefined}
-        />
-        <div className="mt-4 border-t border-border pt-4">
-          <p className="text-sm">
-            Sudah diterima: <strong>{rupiah(r.amountReceived)}</strong>
-          </p>
-          {data.totals.remaining > 0 && (
-            <p className="mt-2 text-lg font-bold">Kurang {rupiah(data.totals.remaining)}</p>
-          )}
-          {data.totals.overpayment > 0 && (
-            <p className="help">
-              Kelebihan {rupiah(data.totals.overpayment)} ikut dikembalikan bersama deposit.
-            </p>
-          )}
-        </div>
-        {r.uniqueCode !== null && (
-          <div className="notice mt-4">
-            <p>
-              Kode unik:{" "}
-              <strong className="tabular text-xl">{String(r.uniqueCode).padStart(3, "0")}</strong>
-            </p>
-            <div className="mt-2">
-              <CopyButton value={String(r.amountDue)} label="Salin total tagihan" />
-            </div>
-            <p className="help">Tulis {r.publicCode} di berita transfer jika tersedia.</p>
-          </div>
+      <section
+        aria-label="Pembayaran"
+        className={cn(
+          "grid min-w-0 gap-5",
+          canUpload && "lg:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)]",
         )}
-      </Card>
-      {canUpload && <PaymentForm data={data} complete={query.refresh} />}
+      >
+        <PaymentSummary data={data} sticky={Boolean(canUpload)} />
+        {canUpload && <PaymentForm data={data} complete={query.refresh} />}
+      </section>
       {data.payments.length > 0 && (
         <Card className="min-w-0">
           <h3 className="text-xl">Bukti pembayaran</h3>

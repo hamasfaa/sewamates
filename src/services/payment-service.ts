@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, gt, ilike, lte, or } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import type { Database, Executor } from "@/src/db";
 import {
@@ -18,6 +18,7 @@ import { AppError, assert, isUniqueViolation } from "@/src/lib/errors";
 import {
   paymentDecisionInput,
   paymentInput,
+  paymentQueueInput,
   platformAccountInput,
 } from "@/src/lib/transaction-validation";
 import { claimUploads, evidencePreview, inspectEvidence } from "@/src/lib/storage";
@@ -439,8 +440,10 @@ export async function decidePayment(
     };
   });
 }
-export async function paymentQueue(db: Executor, actor: User) {
+export async function paymentQueue(db: Executor, actor: User, filter: unknown = {}) {
   requireAdmin(actor);
+  const { q, sla } = paymentQueueInput.parse(filter);
+  const search = `%${q.replace(/[\\%_]/g, "\\$&")}%`;
   return db
     .select({
       payment: payments,
@@ -451,7 +454,17 @@ export async function paymentQueue(db: Executor, actor: User) {
     })
     .from(payments)
     .innerJoin(rentals, eq(rentals.id, payments.rentalId))
-    .where(eq(payments.status, "menunggu"))
+    .where(
+      and(
+        eq(payments.status, "menunggu"),
+        q ? or(ilike(rentals.publicCode, search), ilike(payments.senderName, search)) : undefined,
+        sla === "overdue"
+          ? lte(payments.targetAt, new Date())
+          : sla === "on_time"
+            ? gt(payments.targetAt, new Date())
+            : undefined,
+      ),
+    )
     .orderBy(asc(payments.createdAt), asc(payments.id))
     .limit(100);
 }

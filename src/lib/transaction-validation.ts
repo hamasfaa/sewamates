@@ -22,6 +22,12 @@ export const paymentInput = z
     claimedAmount: money,
   })
   .strict();
+export const paymentQueueInput = z
+  .object({
+    q: z.string().trim().max(100).default(""),
+    sla: z.enum(["all", "overdue", "on_time"]).default("all"),
+  })
+  .strict();
 export const paymentDecisionInput = z
   .object({
     version: z.number().int().positive(),

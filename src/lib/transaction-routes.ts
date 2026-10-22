@@ -65,7 +65,13 @@ export async function transactionRoute(
     );
   if (/^rentals\/[^/]+\/payments$/.test(path) && method === "POST")
     return json(await submitPayment(db, actor, uuid(parts[1]), await body(request), key), 201);
-  if (path === "admin/payments" && method === "GET") return json(await paymentQueue(db, actor));
+  if (path === "admin/payments" && method === "GET")
+    return json(
+      await paymentQueue(db, actor, {
+        q: url.searchParams.get("q") || "",
+        sla: url.searchParams.get("sla") || "all",
+      }),
+    );
   if (/^admin\/payments\/[^/]+$/.test(path) && method === "GET")
     return json(await paymentDetail(db, actor, uuid(parts[2])));
   if (/^admin\/payments\/[^/]+\/decision$/.test(path) && method === "POST")

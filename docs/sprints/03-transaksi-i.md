@@ -4,6 +4,8 @@ Tanggal pengerjaan: 21 Oktober 2026; pembaruan notifikasi: 22 Oktober 2026. Dimu
 
 **Status: implementasi tersedia; pengiriman Telegram berbasis event berhasil diuji dari Supabase hosted ke aplikasi melalui tunnel dan diterima akun penguji. Telegram tidak memakai cron.** Hasil pemeriksaan otomatis dan batas verifikasi dicatat di bawah. Keputusan ada di [ADR 0004](../decisions/0004-transaksi-sprint-3.md).
 
+[Audit kelengkapan dan penyelesaian terbaru](03-transaksi-i-audit.md) mencatat templat penolakan pembayaran, tabel/filter/umur antrean dan badge, ringkasan pembayaran desktop sticky, drag and drop bukti, serta waktu daftar chat yang sudah dilengkapi. Tiga cron kedaluwarsa sudah aktif dan diverifikasi HTTP 200; masalah 403 sebelumnya sudah tidak terulang. Perubahan UI masih perlu ikut deployment berikutnya dan seluruh DoD lingkungan/perangkat belum dinyatakan selesai.
+
 ## Implementasi
 
 | Backlog | Hasil |

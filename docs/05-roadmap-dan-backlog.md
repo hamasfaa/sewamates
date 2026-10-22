@@ -71,7 +71,7 @@ ID fitur merujuk ke [02](02-prd-fitur-mvp.md); aturan ke [01](01-alur-dan-aturan
 - Job `expire-requests`, `expire-payments`; pengiriman Telegram melalui webhook event database tanpa cron.
 - Notifikasi Telegram (pesan + tombol "Buka di SewaMates") untuk kejadian Sprint 1–3; perintah `/transaksi` & `/bantuan`; notifikasi grup admin.
 
-Status implementasi, penyiapan migrasi `0005`, dan bukti pemeriksaan tersedia di [Sprint 3 — Transaksi I](sprints/03-transaksi-i.md). Gunakan [checklist pengujian manual](sprints/03-transaksi-i-e2e.md) sebelum menutup DoD lingkungan bersama. Sprint 4 belum dimulai.
+Status implementasi, penyiapan migrasi sampai `0007`, dan bukti pemeriksaan tersedia di [Sprint 3 — Transaksi I](sprints/03-transaksi-i.md). [Audit kelengkapan dan penyelesaian 22 Oktober 2026](sprints/03-transaksi-i-audit.md) mencatat pelengkapan UI serta tiga cron kedaluwarsa yang sudah aktif dan diverifikasi HTTP 200. Gunakan [checklist pengujian manual](sprints/03-transaksi-i-e2e.md) sebelum menutup DoD lingkungan bersama. Sprint 4 belum dimulai.
 
 **Sprint 4 – Transaksi II**
 - Migrasi: `handover_records`, `handover_photos`, `reschedule_requests`, `no_show_reports`, `payout_tasks`, `cash_movements`, `strikes`, `disputes`, `dispute_evidence`.

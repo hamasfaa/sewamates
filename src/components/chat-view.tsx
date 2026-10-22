@@ -80,6 +80,12 @@ export function ChatView({ selectedId, userId }: { selectedId?: string; userId: 
                   <p className="mt-2 truncate text-sm text-muted-foreground">
                     {c.preview || "Mulai percakapan"}
                   </p>
+                  <time
+                    dateTime={c.lastMessageAt}
+                    className="mt-2 block text-xs text-muted-foreground"
+                  >
+                    {dateWib(c.lastMessageAt)}
+                  </time>
                 </Link>
               </li>
             ))}

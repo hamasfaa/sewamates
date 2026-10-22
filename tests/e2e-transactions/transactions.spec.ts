@@ -36,6 +36,8 @@ test("akun baru menyewa barang Rp1 juta, pembayaran bertahap, verifikasi, dan ch
   await session(admin, f.admin.token);
   const ownerPage = await owner.newPage(),
     adminPage = await admin.newPage();
+  ownerPage.on("pageerror", (error) => errors.push(error.message));
+  adminPage.on("pageerror", (error) => errors.push(error.message));
   ownerPage.on("dialog", (d) => d.accept());
   adminPage.on("dialog", (d) => d.accept());
   try {
@@ -85,32 +87,126 @@ test("akun baru menyewa barang Rp1 juta, pembayaran bertahap, verifikasi, dan ch
     ).toBeVisible();
     await fits(page);
     await fits(ownerPage);
+    if (info.project.name === "chromium-desktop") {
+      const summary = page
+        .getByRole("heading", { name: "Rincian pembayaran", exact: true })
+        .locator("..");
+      expect(await summary.evaluate((element) => getComputedStyle(element).position)).toBe(
+        "sticky",
+      );
+      const formBox = await page
+        .getByRole("heading", { name: "Unggah bukti transfer", exact: true })
+        .boundingBox();
+      const summaryBox = await summary.boundingBox();
+      expect(summaryBox!.x).toBeGreaterThan(formBox!.x);
+      await page.screenshot({ path: test.info().outputPath("payment.png"), fullPage: true });
+    }
     const rental = (await (await context.request.get(`/api/rentals/${id}`)).json()).rental;
     expect(rental.listingSnapshot.itemValue).toBe(1000000);
     const transferTime = new Date(Date.now() + 7 * 3600000 - 60000).toISOString().slice(0, 16);
     const image = await QRCode.toBuffer("Gambar pengujian lokal", { width: 120 });
-    async function pay(amount: number, index: number) {
+    async function pay(amount: number, index: number, reject = false) {
       await page.getByLabel("Rekening tujuan", { exact: true }).selectOption({ index: 1 });
       await page.getByLabel("Nama pengirim", { exact: true }).fill("Penyewa E2E");
       await page.getByLabel("Nominal yang ditransfer (Rp)").fill(String(amount));
       await page.getByLabel("Waktu transfer (WIB)").fill(transferTime);
-      await page.getByLabel("Bukti transfer", { exact: true }).setInputFiles({
+      const proofFile = {
         name: `bukti-${index}.png`,
         mimeType: "image/png",
         buffer: Buffer.concat([image, Buffer.from(String(index))]),
-      });
+      };
+      if (index === 0) {
+        await page.getByLabel("Bukti transfer", { exact: true }).setInputFiles({
+          name: "salah.txt",
+          mimeType: "text/plain",
+          buffer: Buffer.from("bukan bukti transfer"),
+        });
+        await expect(
+          page.getByRole("alert").filter({ hasText: "ukuran maksimal 5 MB" }),
+        ).toBeVisible();
+      }
+      if (index === 1 && info.project.name === "chromium-desktop") {
+        const dataTransfer = await page.evaluateHandle(
+          ({ name, bytes }) => {
+            const transfer = new DataTransfer();
+            transfer.items.add(new File([Uint8Array.from(bytes)], name, { type: "image/png" }));
+            return transfer;
+          },
+          { name: proofFile.name, bytes: Array.from(proofFile.buffer) },
+        );
+        const dropzone = page.getByRole("group", {
+          name: "Area unggah bukti transfer",
+          exact: true,
+        });
+        await dropzone.dispatchEvent("dragover", { dataTransfer });
+        await dropzone.dispatchEvent("drop", { dataTransfer });
+        await dataTransfer.dispose();
+      } else {
+        await page.getByLabel("Bukti transfer", { exact: true }).setInputFiles(proofFile);
+      }
+      await expect(
+        page.getByText(`File dipilih: ${proofFile.name}`, { exact: true }),
+      ).toBeVisible();
       await page.getByRole("button", { name: "Kirim bukti transfer", exact: true }).click();
       await expect(page.getByText("Bukti sedang diperiksa admin.", { exact: false })).toBeVisible();
       await adminPage.goto("/admin/pembayaran");
-      await adminPage.getByRole("button").filter({ hasText: rental.publicCode }).click();
+      const queue = adminPage.getByRole("table", { name: "Antrean verifikasi pembayaran" });
+      await expect(
+        queue.getByRole("columnheader", { name: "Umur tugas", exact: true }),
+      ).toBeVisible();
+      await expect(
+        adminPage.getByRole("link", { name: "Pembayaran, 1 menunggu", exact: true }),
+      ).toBeVisible();
+      if (index === 0) {
+        await adminPage.getByLabel("Cari pembayaran", { exact: true }).fill("tidak-ditemukan");
+        await adminPage.getByRole("button", { name: "Cari", exact: true }).click();
+        await expect(
+          adminPage.getByText("Tidak ada bukti yang cocok dengan filter.", { exact: true }),
+        ).toBeVisible();
+        await adminPage.getByLabel("Cari pembayaran", { exact: true }).fill(rental.publicCode);
+        await adminPage.getByRole("button", { name: "Cari", exact: true }).click();
+        await expect(queue.getByText(rental.publicCode, { exact: true })).toBeVisible();
+        await adminPage.getByLabel("Target verifikasi", { exact: true }).selectOption("overdue");
+        await expect(
+          adminPage.getByText("Tidak ada bukti yang cocok dengan filter.", { exact: true }),
+        ).toBeVisible();
+        await adminPage.getByLabel("Target verifikasi", { exact: true }).selectOption("on_time");
+        await expect(queue.getByText(rental.publicCode, { exact: true })).toBeVisible();
+        await adminPage.getByLabel("Cari pembayaran", { exact: true }).fill("");
+        await adminPage.getByRole("button", { name: "Cari", exact: true }).click();
+        await adminPage.getByLabel("Target verifikasi", { exact: true }).selectOption("all");
+      }
+      await queue
+        .getByRole("button", { name: `Periksa ${rental.publicCode} dari Penyewa E2E`, exact: true })
+        .click();
       await expect(adminPage.getByAltText("Bukti transfer yang diajukan")).toBeVisible();
-      await adminPage.getByLabel("Nominal yang masuk di mutasi (Rp)").fill(String(amount));
-      await adminPage.getByRole("checkbox", { name: /Saya sudah mencocokkan/ }).check();
-      await adminPage.getByRole("button", { name: "Terima pembayaran", exact: true }).click();
+      if (index === 0 && info.project.name === "chromium-desktop")
+        await adminPage.screenshot({
+          path: test.info().outputPath("admin-payments.png"),
+          fullPage: true,
+        });
+      if (reject) {
+        const reason = "Dana belum ditemukan pada mutasi rekening platform.";
+        await adminPage
+          .getByLabel("Templat alasan penolakan", { exact: true })
+          .selectOption(reason);
+        await expect(adminPage.getByLabel("Alasan penolakan", { exact: true })).toHaveValue(reason);
+        await adminPage.getByRole("button", { name: "Tolak bukti", exact: true }).click();
+        await expect(page.getByText(reason, { exact: true })).toBeVisible();
+      } else {
+        await adminPage.getByLabel("Nominal yang masuk di mutasi (Rp)").fill(String(amount));
+        await adminPage.getByRole("checkbox", { name: /Saya sudah mencocokkan/ }).check();
+        await adminPage.getByRole("button", { name: "Terima pembayaran", exact: true }).click();
+      }
       await expect(
         adminPage.getByText("Tidak ada bukti yang menunggu verifikasi.", { exact: true }),
       ).toBeVisible();
+      await expect(
+        adminPage.getByRole("link", { name: "Pembayaran, 1 menunggu", exact: true }),
+      ).toHaveCount(0);
+      await fits(adminPage);
     }
+    await pay(50000, 0, true);
     await pay(50000, 1);
     await expect(page.getByText(/Kurang Rp/)).toContainText("100.001");
     await pay(rental.amountDue - 50000, 2);
@@ -120,7 +216,10 @@ test("akun baru menyewa barang Rp1 juta, pembayaran bertahap, verifikasi, dan ch
     await fits(page);
     const final = await (await context.request.get(`/api/rentals/${id}`)).json();
     expect(final.rental.status).toBe("DIBAYAR");
-    expect(final.payments).toHaveLength(2);
+    expect(final.payments).toHaveLength(3);
+    expect(
+      final.payments.filter((payment: { status: string }) => payment.status === "ditolak"),
+    ).toHaveLength(1);
     const proof = new URL(final.payments[0].proofUrl);
     proof.searchParams.delete("token");
     expect((await context.request.get(proof.toString())).status()).toBe(403);
@@ -182,6 +281,11 @@ test("akun baru menyewa barang Rp1 juta, pembayaran bertahap, verifikasi, dan ch
     await expect(page.getByRole("button", { name: "Kirim pesan", exact: true })).toBeVisible();
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({ path: test.info().outputPath("chat.png") });
+    await page.goto("/chat");
+    await expect(
+      page.getByRole("link").filter({ hasText: "Pemilik E2E" }).locator("time"),
+    ).toBeVisible();
+    await fits(page);
     expect(errors).toEqual([]);
   } finally {
     await owner.close();

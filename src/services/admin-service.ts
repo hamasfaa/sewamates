@@ -5,6 +5,7 @@ import {
   identityVerifications,
   items,
   notifications,
+  payments,
   users,
   type User,
 } from "@/src/db/schema";
@@ -59,14 +60,12 @@ export async function verificationDetail(db: Database, actor: User, id: string) 
     assert(entry, "NOT_FOUND", "Pengajuan tidak ditemukan.", 404);
     const cardUrl = await identityPreview(entry.verification.cardPhotoPath),
       selfieUrl = await identityPreview(entry.verification.selfiePath);
-    await tx
-      .insert(adminAuditLogs)
-      .values({
-        adminId: actor.id,
-        action: "identity_viewed",
-        targetType: "identity_verifications",
-        targetId: id,
-      });
+    await tx.insert(adminAuditLogs).values({
+      adminId: actor.id,
+      action: "identity_viewed",
+      targetType: "identity_verifications",
+      targetId: id,
+    });
     return {
       id,
       name: entry.name,
@@ -116,30 +115,26 @@ export async function decideVerification(
       .update(users)
       .set({ verificationStatus: input.decision === "diterima" ? "terverifikasi" : "ditolak" })
       .where(eq(users.id, entry.userId));
-    await tx
-      .insert(adminAuditLogs)
-      .values({
-        adminId: actor.id,
-        action: `identity_${input.decision}`,
-        targetType: "identity_verifications",
-        targetId: id,
-        meta: { reason: input.reason || null },
-      });
-    await tx
-      .insert(notifications)
-      .values({
-        userId: entry.userId,
-        type: "verification_decided",
-        title:
-          input.decision === "diterima"
-            ? "Kamu sudah terverifikasi!"
-            : "Foto identitas perlu diperbaiki",
-        body:
-          input.decision === "diterima"
-            ? "Lengkapi rekening pencairanmu untuk bersiap menyewa dan menyewakan."
-            : input.reason!,
-        link: "/profil/verifikasi",
-      });
+    await tx.insert(adminAuditLogs).values({
+      adminId: actor.id,
+      action: `identity_${input.decision}`,
+      targetType: "identity_verifications",
+      targetId: id,
+      meta: { reason: input.reason || null },
+    });
+    await tx.insert(notifications).values({
+      userId: entry.userId,
+      type: "verification_decided",
+      title:
+        input.decision === "diterima"
+          ? "Kamu sudah terverifikasi!"
+          : "Foto identitas perlu diperbaiki",
+      body:
+        input.decision === "diterima"
+          ? "Lengkapi rekening pencairanmu untuk bersiap menyewa dan menyewakan."
+          : input.reason!,
+      link: "/profil/verifikasi",
+    });
     return { id, status: saved.status };
   });
 }
@@ -160,7 +155,20 @@ export async function adminSummary(db: Executor, actor: User) {
     })
     .from(items)
     .where(eq(items.status, "menunggu_review"));
-  return { ...result, listingsPending: listings.pending, listingsOverdue: listings.overdue };
+  const [paymentCounts] = await db
+    .select({
+      pending: sql<number>`count(*)::int`,
+      overdue: sql<number>`count(*) filter (where ${payments.targetAt} <= now())::int`,
+    })
+    .from(payments)
+    .where(eq(payments.status, "menunggu"));
+  return {
+    ...result,
+    listingsPending: listings.pending,
+    listingsOverdue: listings.overdue,
+    paymentsPending: paymentCounts.pending,
+    paymentsOverdue: paymentCounts.overdue,
+  };
 }
 export async function auditLogs(
   db: Executor,

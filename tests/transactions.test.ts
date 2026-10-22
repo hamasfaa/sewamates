@@ -18,6 +18,7 @@ import { actOnRental, createRental, rentalDetail } from "@/src/services/rental-s
 import {
   decidePayment,
   deletePlatformAccount,
+  paymentQueue,
   savePlatformAccount,
   submitPayment,
 } from "@/src/services/payment-service";
@@ -38,6 +39,7 @@ import { expireRentals } from "@/src/jobs/expire-rentals";
 import { deliverNotifications } from "@/src/jobs/deliver-notifications";
 import { DEFAULT_SETTINGS } from "@/src/domain/settings";
 import { notify, notifyAdmins } from "@/src/services/notification-service";
+import { adminSummary } from "@/src/services/admin-service";
 
 const mocks = vi.hoisted(() => ({ download: vi.fn(), sendMessage: vi.fn() }));
 vi.mock("@supabase/supabase-js", () => ({
@@ -378,6 +380,76 @@ describe("pengajuan dan hold", () => {
   );
 });
 describe("pembayaran dan ledger", () => {
+  it("memfilter antrean sebelum limit, mencari karakter literal, dan menghitung seluruh tugas menunggu", async () => {
+    const f = await setup(),
+      r = await approved(f);
+    const first = await proof(f, r.id, 10000),
+      second = await proof(f, r.id, 20000);
+    await db
+      .update(s.payments)
+      .set({
+        senderName: "Pengirim 100%_Uji",
+        createdAt: new Date(Date.now() - 3 * 3600000),
+        targetAt: new Date(Date.now() - 3600000),
+      })
+      .where(eq(s.payments.id, first.id));
+    await db
+      .update(s.payments)
+      .set({ targetAt: new Date(Date.now() + 3600000) })
+      .where(eq(s.payments.id, second.id));
+    expect((await paymentQueue(db, f.admin)).map((row) => row.payment.id)).toEqual([
+      first.id,
+      second.id,
+    ]);
+    expect(await paymentQueue(db, f.admin, { q: r.publicCode })).toHaveLength(2);
+    expect((await paymentQueue(db, f.admin, { q: "100%_" })).map((row) => row.payment.id)).toEqual([
+      first.id,
+    ]);
+    expect(await paymentQueue(db, f.admin, { q: "tidak-ada" })).toHaveLength(0);
+    expect(
+      (await paymentQueue(db, f.admin, { sla: "overdue" })).map((row) => row.payment.id),
+    ).toEqual([first.id]);
+    expect(
+      (await paymentQueue(db, f.admin, { sla: "on_time" })).map((row) => row.payment.id),
+    ).toEqual([second.id]);
+    expect(await adminSummary(db, f.admin)).toMatchObject({
+      paymentsPending: 2,
+      paymentsOverdue: 1,
+    });
+    await decidePayment(db, f.admin, first.id, {
+      version: (await getRental(r.id)).version,
+      decision: "ditolak",
+      reason: "Bukti transfer duplikat atau sudah digunakan.",
+    });
+    expect(await adminSummary(db, f.admin)).toMatchObject({
+      paymentsPending: 1,
+      paymentsOverdue: 0,
+    });
+    const [pending] = await db.select().from(s.payments).where(eq(s.payments.id, second.id));
+    await db.insert(s.payments).values(
+      Array.from({ length: 100 }, (_, index) => ({
+        ...pending,
+        id: crypto.randomUUID(),
+        senderName: "Pengirim lain dalam antrean",
+        proofPath: `${f.renter.id}/payment_proof/batch-${index}.png`,
+        proofSha256: index.toString(16).padStart(64, "0"),
+        createdAt: new Date(Date.now() - 2 * 3600000),
+      })),
+    );
+    expect(await paymentQueue(db, f.admin)).toHaveLength(100);
+    expect(
+      (await paymentQueue(db, f.admin, { q: "Penyewa Uji" })).map((row) => row.payment.id),
+    ).toEqual([second.id]);
+    expect(await adminSummary(db, f.admin)).toMatchObject({ paymentsPending: 101 });
+  });
+  it("filter pembayaran tetap khusus admin dan menolak filter yang tidak valid", async () => {
+    const f = await setup();
+    await expect(paymentQueue(db, f.renter, { q: "SM" })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    await expect(paymentQueue(db, f.admin, { sla: "semua-status" })).rejects.toThrow();
+    await expect(paymentQueue(db, f.admin, { q: "x".repeat(101) })).rejects.toThrow();
+  });
   it("menunggu semua bukti diputuskan meskipun total sudah lunas", async () => {
     const f = await setup(),
       rental = await approved(f);

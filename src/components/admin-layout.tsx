@@ -12,6 +12,8 @@ import {
   Wallet,
 } from "lucide-react";
 import { cn } from "@/src/lib/utils";
+import { useLiveApi, type Wire } from "@/src/lib/live-api";
+import type { adminSummary } from "@/src/services/admin-service";
 export function AdminLayout({
   children,
   superAdmin,
@@ -20,6 +22,10 @@ export function AdminLayout({
   superAdmin: boolean;
 }) {
   const pathname = usePathname();
+  const summary = useLiveApi<Wire<Awaited<ReturnType<typeof adminSummary>>>>(
+    "/api/admin/summary",
+    5000,
+  );
   return (
     <div className="page-container grid gap-6 py-7 lg:grid-cols-[225px_1fr] lg:py-10">
       {/* min-w-0 keeps the horizontally scrolling menu inside narrow screens. */}
@@ -37,19 +43,42 @@ export function AdminLayout({
         </div>
         <nav aria-label="Menu admin" className="flex gap-2 overflow-x-auto lg:flex-col">
           {[
-            { href: "/admin", label: "Ringkasan", icon: LayoutDashboard },
-            { href: "/admin/verifikasi", label: "Verifikasi identitas", icon: BadgeCheck },
-            { href: "/admin/listing", label: "Moderasi listing", icon: PackageSearch },
-            { href: "/admin/pembayaran", label: "Pembayaran", icon: Wallet },
-            { href: "/admin/audit", label: "Audit log", icon: ScrollText },
+            { href: "/admin", label: "Ringkasan", icon: LayoutDashboard, count: undefined },
+            {
+              href: "/admin/verifikasi",
+              label: "Verifikasi identitas",
+              icon: BadgeCheck,
+              count: summary.data?.pending,
+            },
+            {
+              href: "/admin/listing",
+              label: "Moderasi listing",
+              icon: PackageSearch,
+              count: summary.data?.listingsPending,
+            },
+            {
+              href: "/admin/pembayaran",
+              label: "Pembayaran",
+              icon: Wallet,
+              count: summary.data?.paymentsPending,
+            },
+            { href: "/admin/audit", label: "Audit log", icon: ScrollText, count: undefined },
             ...(superAdmin
-              ? [{ href: "/admin/pengaturan", label: "Pengaturan", icon: Settings2 }]
+              ? [
+                  {
+                    href: "/admin/pengaturan",
+                    label: "Pengaturan",
+                    icon: Settings2,
+                    count: undefined,
+                  },
+                ]
               : []),
-          ].map(({ href, label, icon: Icon }) => (
+          ].map(({ href, label, icon: Icon, count }) => (
             <Link
               key={href}
               href={href}
               aria-current={pathname === href ? "page" : undefined}
+              aria-label={count ? `${label}, ${count} menunggu` : label}
               className={cn(
                 "flex min-h-12 shrink-0 items-center gap-3 rounded-xl px-4 text-sm font-semibold",
                 pathname === href ||
@@ -60,6 +89,14 @@ export function AdminLayout({
             >
               <Icon size={18} />
               {label}
+              {count !== undefined && count > 0 && (
+                <span
+                  aria-hidden="true"
+                  className="tabular ml-auto rounded-full bg-secondary px-2 py-0.5 text-xs font-bold text-primary"
+                >
+                  {count}
+                </span>
+              )}
             </Link>
           ))}
         </nav>

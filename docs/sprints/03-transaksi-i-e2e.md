@@ -16,13 +16,15 @@ Gunakan lingkungan dev/staging. Prasyarat dan migrasi ada di [status Sprint 3](0
 | Halaman bayar | Penyewa pilih rekening aktif, salin rekening/tagihan/kode transaksi | Total = sewa + deposit + kode unik, kode unik bagian deposit; instruksi berita transfer, jam admin dan batas bayar jelas |
 | Unggah | Coba gambar/PDF valid ≤5 MB, file palsu, file >5 MB, file milik akun lain | Hanya bukti valid milik penyewa diterima; tautan privat tanpa token ditolak |
 | Verifikasi | Admin buka bukti dan mutasi uji; terima dengan nominal aktual | Nominal aktual masuk, bukan nilai klaim. Bukti tidak diproses dua kali; audit dan jurnal tercatat |
+| Antrean admin | Cari kode transaksi/nama pengirim; pilih filter lewat target/dalam batas waktu; terima/tolak satu bukti | Tabel desktop atau kartu HP menampilkan umur tugas; filter bekerja dan badge jumlah menunggu diperbarui meskipun antrean sedang difilter |
+| Desktop pembayaran | Buka halaman bayar pada desktop dan gulir formulir; tarik satu gambar/PDF ke area unggah | Formulir di kiri, ringkasan tagihan sticky di kanan; nama file tampil dan bukti dapat dikirim. Jenis/ukuran tidak valid ditolak sebelum unggah |
 | Kurang bayar | Terima bukti pertama di bawah tagihan, lalu tambah bukti pelunasan | Kembali menunggu pembayaran dengan sisa dan batas baru; setelah semua bukti diproses menjadi siap serah terima |
 | Banyak bukti | Kirim dua bukti, terima satu yang sudah mencukupi total, biarkan satu tertunda | Tetap menunggu verifikasi sampai bukti terakhir diputuskan |
-| Bukti ditolak | Tolak bukti dengan alasan, coba tanpa alasan, lalu kirim bukti baru | Alasan wajib; bukti ditolak tidak menambah dana; penyewa bisa mengunggah ulang sebelum batas baru |
+| Bukti ditolak | Pilih templat alasan, sunting jika perlu; coba menolak tanpa alasan, lalu kirim bukti baru | Alasan wajib dan tampil pada penyewa; bukti ditolak tidak menambah dana; penyewa bisa mengunggah ulang sebelum batas baru |
 | Versi dan role | Dua admin memutuskan bukti yang sama; admin peserta mencoba memverifikasi sendiri | Satu keputusan berhasil; keputusan ganda/versi lama ditolak; admin peserta meminta admin lain |
 | Lewat waktu | Biarkan pengajuan atau pembayaran melewati batas; panggil job terotorisasi/cron | Menjadi kedaluwarsa, hold dilepas; `MENUNGGU_VERIFIKASI` tetap menunggu admin |
 | Refund parsial | Bayar sebagian, terima bukti, kemudian batalkan/kedaluwarsakan sebelum lunas | Kewajiban refund dibuat sekali, dana ditahan menjadi nol; transfer refund dikerjakan pada Sprint 4 |
-| Chat | Mulai dari detail barang; ulangi pada barang/pasangan sama; kirim teks/gambar | Percakapan sama, pesan tampil tanpa refresh; terkirim/dibaca, urutan dan jumlah unread sesuai |
+| Chat | Mulai dari detail barang; ulangi pada barang/pasangan sama; kirim teks/gambar | Percakapan sama, pesan tampil tanpa refresh; terkirim/dibaca, urutan dan jumlah unread sesuai; daftar percakapan menampilkan waktu pesan terakhir dalam WIB |
 | Filter chat | Kirim `081234567890`, nomor dengan spasi/tanda hubung, dan tautan | Keluaran disamarkan dengan peringatan; kode transaksi pada pesan sistem tetap terbaca |
 | Laporan/blokir | Laporkan pesan; blokir dan coba pesan/pengajuan dari lawan, lalu buka blokir | Laporan tersimpan; blokir berlaku dua arah; hanya pemblokir dapat mencabut blokir miliknya |
 | Privasi | Coba URL/API chat sebagai pengguna ketiga dan sebagai admin tanpa laporan | Ditolak. Admin dapat membaca lewat endpoint admin setelah ada laporan; akses tercatat |
