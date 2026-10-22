@@ -521,6 +521,8 @@ export const notificationDeliveries = pgTable("notification_deliveries", {
   lastError: text("last_error"),
   nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).notNull().defaultNow(),
   claimedUntil: timestamp("claimed_until", { withTimezone: true }),
+  dispatchRequestId: bigint("dispatch_request_id", { mode: "number" }),
+  telegramMessageId: bigint("telegram_message_id", { mode: "number" }),
   createdAt: created(),
 });
 export const deliveryThrottles = pgTable("delivery_throttles", {

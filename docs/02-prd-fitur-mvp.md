@@ -161,7 +161,7 @@ Semua aturan dan angka merujuk ke [01 – Alur & Aturan Sistem](01-alur-dan-atur
 
 ### F15 Notifikasi
 - Semua notifikasi tersimpan in-app (ikon lonceng + jumlah belum dibaca).
-- Telegram dipicu setelah aksi berhasil disimpan, tanpa menunggu cron menit berikutnya. Antrean permanen dan retry menjaga pesan saat Telegram bermasalah; cron tiap menit memproses sisa antrean. Latensi pengiriman dipengaruhi koneksi, batas Telegram, dan panjang antrean.
+- Telegram dipicu webhook database setelah outbox berhasil di-commit, termasuk event yang dibuat melalui skrip. Tidak ada cron Telegram. Retry berjalan pada callback event dengan batas waktu; jika callback gagal dijangkau atau batas waktu habis, antrean tetap tersimpan untuk dikirim ulang secara operasional. Latensi dipengaruhi koneksi dan batas Telegram. Penyiapan dan pemulihan ada di [Sprint 3](sprints/03-transaksi-i.md#webhook-telegram-tanpa-cron).
 - Lonceng dan daftar notifikasi diperbarui setiap 2 detik saat tab aktif, serta saat pengguna kembali ke tab. Ini memakai polling terotorisasi; pengguna tidak perlu memuat ulang halaman.
 - Kanal per kejadian:
 

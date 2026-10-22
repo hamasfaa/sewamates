@@ -1,5 +1,5 @@
 import { InlineKeyboard } from "grammy";
-import { and, asc, eq, isNull, lte, or, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import type { Database } from "@/src/db";
 import {
   deliveryThrottles,
@@ -11,9 +11,13 @@ import { telegramApi } from "@/src/services/telegram-api";
 import { appUrl } from "@/src/lib/env";
 import { setTimeout as delay } from "node:timers/promises";
 
-export async function deliverNotifications(db: Database, options: { maxDurationMs?: number } = {}) {
+export async function deliverNotifications(
+  db: Database,
+  options: { maxDurationMs?: number; deliveryIds?: string[] } = {},
+) {
   if (!process.env.TELEGRAM_BOT_TOKEN)
     return { attempted: 0, sent: 0, skipped: "TELEGRAM_NOT_CONFIGURED" };
+  if (options.deliveryIds?.length === 0) return { attempted: 0, sent: 0 };
   let attempted = 0,
     sent = 0;
   const deadline = Date.now() + (options.maxDurationMs ?? 8000);
@@ -26,6 +30,7 @@ export async function deliverNotifications(db: Database, options: { maxDurationM
         .where(
           and(
             eq(deliveries.status, "antre"),
+            options.deliveryIds ? inArray(deliveries.id, options.deliveryIds) : undefined,
             lte(deliveries.nextAttemptAt, sql`now()`),
             or(isNull(deliveries.claimedUntil), lte(deliveries.claimedUntil, now)),
           ),
@@ -86,6 +91,7 @@ export async function deliverNotifications(db: Database, options: { maxDurationM
         .where(
           and(
             eq(deliveries.status, "antre"),
+            options.deliveryIds ? inArray(deliveries.id, options.deliveryIds) : undefined,
             or(isNull(deliveries.claimedUntil), lte(deliveries.claimedUntil, new Date())),
           ),
         )
@@ -108,14 +114,19 @@ export async function deliverNotifications(db: Database, options: { maxDurationM
         appUrl(),
       ).toString();
       const timeoutSeconds = Math.max(0.001, Math.min(8, (deadline - Date.now()) / 1000));
-      await telegramApi(timeoutSeconds).sendMessage(
+      const message = await telegramApi(timeoutSeconds).sendMessage(
         chatId,
         `${row.notification.title}\n\n${row.notification.body}`,
         { reply_markup: new InlineKeyboard().url("Buka di SewaMates", link) },
       );
       await db
         .update(deliveries)
-        .set({ status: "terkirim", claimedUntil: null, lastError: null })
+        .set({
+          status: "terkirim",
+          claimedUntil: null,
+          lastError: null,
+          telegramMessageId: message.message_id,
+        })
         .where(eq(deliveries.id, delivery.id));
       sent++;
     } catch (error) {
@@ -143,4 +154,28 @@ export async function deliverNotifications(db: Database, options: { maxDurationM
     }
   }
   return { attempted, sent };
+}
+
+// One database event owns one delivery, including bounded retries; no periodic worker is needed.
+export async function deliverNotificationEvent(
+  db: Database,
+  deliveryId: string,
+  options: { maxDurationMs?: number } = {},
+) {
+  const deadline = Date.now() + (options.maxDurationMs ?? 240000);
+  while (Date.now() < deadline) {
+    const [delivery] = await db.select().from(deliveries).where(eq(deliveries.id, deliveryId));
+    if (!delivery || delivery.status !== "antre")
+      return { status: delivery?.status ?? "not_found" };
+    if (delivery.claimedUntil && delivery.claimedUntil > new Date()) return { status: "claimed" };
+    const wait = Math.max(0, delivery.nextAttemptAt.getTime() - Date.now());
+    if (Date.now() + wait + 10 >= deadline) break;
+    if (wait) await delay(wait + 5);
+    const result = await deliverNotifications(db, {
+      deliveryIds: [deliveryId],
+      maxDurationMs: Math.min(8000, deadline - Date.now()),
+    });
+    if (result.skipped) return { status: result.skipped };
+  }
+  return { status: "pending_retry" };
 }

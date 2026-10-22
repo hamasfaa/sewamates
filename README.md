@@ -2,7 +2,7 @@
 
 Web sewa barang antar mahasiswa, dibangun dengan Next.js App Router, TypeScript, Tailwind CSS, komponen pola shadcn/ui, Drizzle, PostgreSQL/Supabase, dan grammY. Spesifikasi PM ada di [docs](docs/README.md).
 
-**Lingkup saat ini: Sprint 3 — Transaksi I.** Pengajuan dan persetujuan sewa, pembayaran manual bertahap, verifikasi admin, chat privat, serta job/notifikasi Telegram tersedia. Lihat [Sprint 3](docs/sprints/03-transaksi-i.md) untuk migrasi `0005`, penyiapan rekening platform/cron, hasil tes, dan batas integrasi yang belum diverifikasi. Serah terima dan pelaksanaan pencairan mengikuti Sprint 4.
+**Lingkup saat ini: Sprint 3 — Transaksi I.** Pengajuan dan persetujuan sewa, pembayaran manual bertahap, verifikasi admin, chat privat, serta notifikasi Telegram berbasis event tersedia. Lihat [Sprint 3](docs/sprints/03-transaksi-i.md) untuk migrasi sampai `0007`, penyiapan rekening platform, webhook Telegram tanpa cron, job kedaluwarsa, dan hasil tes. Serah terima dan pelaksanaan pencairan mengikuti Sprint 4.
 
 ## Menjalankan aplikasi
 

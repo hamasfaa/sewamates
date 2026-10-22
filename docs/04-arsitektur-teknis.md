@@ -25,7 +25,7 @@ Alasan: satu basis kode, rilis tanpa proses toko aplikasi, tautan mudah dibagika
 | Storage | Supabase Storage | Bucket publik dan privat, lihat 6.2 |
 | Real-time | Sprint 3 menggunakan polling terotorisasi | Ruang chat 1,5 detik, daftar transaksi/chat 5 detik, lonceng/daftar notifikasi 2 detik; spike dan keputusan Realtime ada di ADR 0004 |
 | Job terjadwal | `pg_cron` + `pg_net` memanggil endpoint internal tiap menit | Cron Vercel paket gratis hanya sekali per hari, jadi tidak dipakai |
-| Telegram bot | **Telegram Bot API** (bot dibuat lewat BotFather), library grammY | Mode **webhook** ke `/api/telegram/webhook` dengan `secret_token`. Outbox diproses lewat `after()` setelah respons mutasi berhasil; cron tiap menit menjadi cadangan. Jeda 35 ms global, 1 detik per chat pribadi, 3 detik per grup; 429 mengikuti `retry_after` |
+| Telegram bot | **Telegram Bot API** (bot dibuat lewat BotFather), library grammY | Update masuk ke `/api/telegram/webhook` dengan `secret_token`. Insert outbox memicu `pg_net` setelah commit ke `/api/internal/notifications/deliver`, lalu `after()` mengirim satu delivery beserta retry terbatas. Tanpa cron Telegram. Jeda 35 ms global, 1 detik per chat pribadi, 3 detik per grup; 429 mengikuti `retry_after` |
 | Web push | Standar Web Push (VAPID), library `web-push` | – |
 | Hosting | Vercel (app) + Supabase (DB, storage, realtime, pg_cron) | Region Singapura untuk keduanya |
 | Monitoring | Sentry (FE & BE), PostHog (event produk) | – |
@@ -183,7 +183,8 @@ reports(id, reporter_id, target_type[user|item|message|review], target_id, reaso
 ### 4.6 Sistem
 ```
 notifications(id, user_id, type, title, body, link, read_at)
-notification_deliveries(id, notification_id, channel[telegram|push], status[antre|terkirim|gagal], attempts, last_error, next_attempt_at)
+notification_deliveries(id, notification_id, channel[telegram|push], status[antre|terkirim|gagal], attempts, last_error, next_attempt_at,
+                        claimed_until, dispatch_request_id, telegram_message_id)
 login_requests(id, token_hash UNIQUE, browser_nonce_hash, match_code, telegram_user_id NULL, user_id NULL,
                status[menunggu|disetujui|dipakai|kedaluwarsa], expires_at)
 action_confirmations(id, user_id, action[ubah_rekening|hapus_akun], payload jsonb,
@@ -270,6 +271,7 @@ PUT    /api/admin/users/:id/role                                            (SA)
 
 # Internal
 POST   /api/internal/jobs/:name         (dipanggil pg_cron, diautentikasi secret header)
+POST   /api/internal/notifications/deliver (webhook pg_net, Bearer INTERNAL_JOB_SECRET, body deliveryId)
 POST   /api/telegram/webhook            (update dari Telegram; wajib header X-Telegram-Bot-Api-Secret-Token)
 ```
 
@@ -340,9 +342,10 @@ Dipanggil tiap menit oleh `pg_cron`. Semua job **idempoten** (aman dijalankan ul
 | `reminders` | Pengingat bayar, serah terima, jatuh tempo, masa cek |
 | `reveal-reviews` | Buka rating yang sudah 7 hari |
 | `expire-strikes` / `auto-suspend` | Hitung strike 90 hari, tangguhkan bila ≥ 3 |
-| `deliver-notifications` | Kirim antrean Telegram/push dengan retry (maks 5, backoff; hormati `retry_after`) |
 | `expire-login-requests` | Login request & konfirmasi aksi lewat `expires_at` → kedaluwarsa; hapus yang > 7 hari |
 | `purge-identity` | Hapus foto identitas akun yang sudah dihapus > 30 hari |
+
+Sprint 3 memasang tiga job: `expire-login-requests`, `expire-requests`, dan `expire-payments`. Pengiriman Telegram berjalan lewat trigger outbox pada migrasi `0007`, tanpa jadwal atau cron cadangan. Callback mengirim delivery yang diminta dan melakukan maksimal 5 percobaan dalam anggaran 240 detik; route mengizinkan 300 detik (Vercel Fluid Compute). Gangguan endpoint atau retry yang melewati anggaran memerlukan redispatch operasional. Lihat [penyiapan dan pemulihan](sprints/03-transaksi-i.md#webhook-telegram-tanpa-cron).
 
 ## 8. Lingkungan, CI & Tes
 - Lingkungan: `local` (Supabase CLI + Next dev), `staging`, `production`; database dan bucket terpisah per lingkungan. Setiap lingkungan memakai **bot Telegram terpisah** (mis. `@SewaMatesDevBot`, `@SewaMatesStagingBot`, `@SewaMatesBot`); di `local`, webhook diarahkan lewat tunnel (mis. cloudflared) atau bot dijalankan mode long polling.

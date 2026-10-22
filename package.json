@@ -19,7 +19,9 @@
     "db:migrate": "tsx --env-file-if-exists=.env.local scripts/migrate.ts",
     "db:seed": "tsx --env-file-if-exists=.env.local scripts/seed.ts",
     "db:campuses": "tsx --env-file-if-exists=.env.local scripts/import-campuses.ts",
-    "telegram:webhook": "tsx --env-file-if-exists=.env.local scripts/telegram-webhook.ts"
+    "telegram:webhook": "tsx --env-file-if-exists=.env.local scripts/telegram-webhook.ts",
+    "telegram:notifications": "tsx --env-file-if-exists=.env.local scripts/setup-telegram-notifications.ts",
+    "telegram:test": "tsx --env-file-if-exists=.env.local scripts/test-telegram-notification.ts"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.3",

@@ -15,7 +15,6 @@ import { canUpload, signUpload } from "./storage";
 import { privateMarketplaceRoute, publicMarketplaceRoute } from "./marketplace-routes";
 import { transactionRoute } from "./transaction-routes";
 import { expireRentals } from "@/src/jobs/expire-rentals";
-import { deliverNotifications } from "@/src/jobs/deliver-notifications";
 import {
   startLogin,
   consumeLogin,
@@ -90,7 +89,6 @@ export const dispatch = endpoint(async (request) => {
     if (parts[2] === "expire-login-requests") return json(await expireLoginRequests(getDb()));
     if (parts[2] === "expire-requests") return json(await expireRentals(getDb(), "requests"));
     if (parts[2] === "expire-payments") return json(await expireRentals(getDb(), "payments"));
-    if (parts[2] === "deliver-notifications") return json(await deliverNotifications(getDb()));
     throw new AppError("NOT_FOUND", "Job tidak ditemukan.", 404);
   }
   if (path === "auth/telegram/start" && method === "POST") {

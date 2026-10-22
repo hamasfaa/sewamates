@@ -68,7 +68,7 @@ ID fitur merujuk ke [02](02-prd-fitur-mvp.md); aturan ke [01](01-alur-dan-aturan
 - F8 pembayaran manual (bukti bertahap, kurang bayar) + F22 verifikasi per bukti + jurnal ledger pertama.
 - **Spike di awal sprint**: Supabase Realtime dengan JWT yang diterbitkan server ([04](04-arsitektur-teknis.md) bagian 2); bila gagal, putuskan polling.
 - F9 chat (real-time atau polling, pesan sistem, filter nomor/tautan).
-- Job `expire-requests`, `expire-payments`, `deliver-notifications`.
+- Job `expire-requests`, `expire-payments`; pengiriman Telegram melalui webhook event database tanpa cron.
 - Notifikasi Telegram (pesan + tombol "Buka di SewaMates") untuk kejadian Sprint 1–3; perintah `/transaksi` & `/bantuan`; notifikasi grup admin.
 
 Status implementasi, penyiapan migrasi `0005`, dan bukti pemeriksaan tersedia di [Sprint 3 — Transaksi I](sprints/03-transaksi-i.md). Gunakan [checklist pengujian manual](sprints/03-transaksi-i-e2e.md) sebelum menutup DoD lingkungan bersama. Sprint 4 belum dimulai.
