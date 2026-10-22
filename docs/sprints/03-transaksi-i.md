@@ -20,13 +20,15 @@ Tanggal pengerjaan: 21 Oktober 2026. Dimulai setelah pemilik aplikasi menyatakan
 
 Halaman pengguna tersedia di `/barang/[id]/sewa`, `/transaksi`, `/transaksi/[id]`, `/chat`, `/chat/[id]`. Verifikasi pembayaran tersedia bagi admin di `/admin/pembayaran`. Pengguna/admin lain tidak memperoleh akses chat peserta hanya karena mempunyai role admin.
 
+Akun baru boleh menyewa barang dengan nilai berapa pun di katalog, termasuk dengan 0 transaksi selesai. Verifikasi identitas, rekening/e-wallet terkonfirmasi, ketersediaan, dan persetujuan pemilik diperlukan. Pengaturan aplikasi divalidasi secara strict sesuai schema.
+
 ## Penyiapan dev/staging
 
 1. Pastikan target `.env.local` memang lingkungan yang akan diperbarui, lalu jalankan `npm run db:migrate` untuk menerapkan `0005`. Untuk Supabase CLI lokal gunakan alur migrasi CLI seperti setup sebelumnya. Migrasi membuat/menyesuaikan bucket `evidence-private` privat, 5 MB, JPEG/PNG/WebP/PDF bila schema Storage tersedia. Tidak ada migrasi hosted yang dijalankan otomatis selama implementasi ini.
 2. Jalankan `npm run db:seed` bila perlu melengkapi pengaturan. Super admin menambahkan rekening operasional bank atau e-wallet lewat **Admin → Pengaturan → Rekening platform**. Gunakan data uji pada lingkungan dev. Persetujuan pengajuan ditolak jika belum ada rekening platform aktif.
 3. Pastikan titik serah terima aktif dan jam WIB benar. Siapkan dua akun pengguna berbeda yang sudah terverifikasi serta rekening/e-wallet terkonfirmasi, dan satu admin yang bukan peserta transaksi untuk memeriksa bukti.
 4. Isi `TELEGRAM_ADMIN_CHAT_ID` dengan ID grup admin dan masukkan bot ke grup. Tetapkan URL HTTPS dan bot sesuai lingkungan, lalu `npm run telegram:webhook` untuk memperbarui webhook dan menu `/transaksi`. Perintah ini mengganti tujuan webhook bot; gunakan bot terpisah dari production.
-5. Pada Supabase aktifkan `pg_cron`, `pg_net`, Vault. Buat secret Vault `sewamates_app_url` dan `sewamates_job_secret` sesuai `INTERNAL_JOB_SECRET`, lalu jalankan [supabase/jobs.sql](../../supabase/jobs.sql). File tersebut menjadwalkan empat job setiap menit, termasuk job login Sprint 1, dengan nama tetap agar dapat dipasang ulang.
+5. Pada Supabase aktifkan `pg_cron`, `pg_net`, Vault (nama ekstensi SQL: `supabase_vault`; schema: `vault`). Pemeriksaan dan penanganan error `vault.control` ada di [setup job](../setup-sprint-1.md#job-terjadwal). Buat secret Vault `sewamates_app_url` dan `sewamates_job_secret` sesuai `INTERNAL_JOB_SECRET`, lalu jalankan [supabase/jobs.sql](../../supabase/jobs.sql). File tersebut menjadwalkan empat job setiap menit, termasuk job login Sprint 1, dengan nama tetap agar dapat dipasang ulang.
 6. Deploy kode setelah migrasi siap. Uji [checklist manual](03-transaksi-i-e2e.md), lalu periksa Sentry, hasil HTTP job, outbox gagal, dan audit log.
 
 ## Pemeriksaan otomatis
@@ -56,7 +58,7 @@ Port 3100 dan 3101 harus bebas. Konfigurasi ini terpisah dari `npm run test:e2e`
 
 ## Batas verifikasi dan sprint berikutnya
 
-Hasil lokal:
+Hasil lokal awal (21 Oktober 2026):
 
 - ESLint dan TypeScript lulus tanpa galat; build production Next.js 16.4.2 berhasil dengan halaman transaksi, chat, formulir sewa, verifikasi pembayaran dan rekening platform.
 - PostgreSQL 17: **129 tes lulus**. Termasuk persetujuan rental bersamaan yang hanya menghasilkan satu hold, keputusan bukti oleh dua admin yang hanya mencatat satu penerimaan, exclusion constraint langsung, jurnal deferred, bukti bertahap, batas pembayaran yang berubah, refund, otorisasi dan outbox.

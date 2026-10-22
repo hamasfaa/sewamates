@@ -283,7 +283,21 @@ describe("pengajuan dan hold", () => {
     await actOnRental(db, f.owner, first.id, "approve", { version: 1 });
     expect((await getRental(first.id)).pricePerDay).toBe(50000);
   });
-  it("menolak menyewa diri sendiri, belum verifikasi, tanpa rekening, jam tutup, dan akun baru di atas batas", async () => {
+  it.each([1_000_000, 10_000_000, 100_000_000])(
+    "akun tanpa transaksi selesai dapat menyewa barang bernilai Rp%i",
+    async (itemValue) => {
+      const f = await setup();
+      expect(f.renter.completedCount).toBe(0);
+      await db
+        .update(s.items)
+        .set({ itemValue, deposit: Math.min(itemValue / 10, DEFAULT_SETTINGS.deposit_cap) })
+        .where(eq(s.items.id, f.item.id));
+      const rental = await approved(f);
+      expect(rental.status).toBe("DISETUJUI");
+      expect(rental.listingSnapshot.itemValue).toBe(itemValue);
+    },
+  );
+  it("menolak menyewa diri sendiri, belum verifikasi, tanpa rekening, dan jam tutup", async () => {
     const f = await setup();
     await expect(createRental(db, f.owner, f.input)).rejects.toMatchObject({ code: "SELF_RENTAL" });
     await expect(
@@ -296,11 +310,6 @@ describe("pengajuan dan hold", () => {
     await expect(createRental(db, f.renter, closed)).rejects.toMatchObject({
       code: "POINT_CLOSED",
     });
-    await db.update(s.items).set({ itemValue: 1000000 }).where(eq(s.items.id, f.item.id));
-    await expect(createRental(db, f.renter, f.input)).rejects.toMatchObject({
-      code: "NEW_ACCOUNT_LIMIT",
-    });
-    await db.update(s.items).set({ itemValue: 500000 }).where(eq(s.items.id, f.item.id));
     await db.delete(s.payoutAccounts).where(eq(s.payoutAccounts.userId, f.renter.id));
     await expect(createRental(db, f.renter, f.input)).rejects.toMatchObject({
       code: "PAYOUT_REQUIRED",

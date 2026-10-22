@@ -494,6 +494,10 @@ describe("Pengaturan, job, dan RLS", () => {
     expect((await getSettings(db)).login_ttl_minutes).toBe(5);
     expect(await db.select().from(s.adminAuditLogs)).toHaveLength(1);
   });
+  it("menolak key pengaturan database yang tidak dikenal", async () => {
+    await db.insert(s.settings).values({ key: "unknown_setting", value: 1 });
+    await expect(getSettings(db)).rejects.toThrow();
+  });
   it("job kedaluwarsa idempoten", async () => {
     const login = await startLogin(db, randomToken(), "local");
     await db

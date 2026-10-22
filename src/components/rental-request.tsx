@@ -5,7 +5,7 @@ import { useState } from "react";
 import { api, useApi } from "@/src/lib/client-api";
 import type { Wire } from "@/src/lib/live-api";
 import type { rentalOptions } from "@/src/services/rental-service";
-import { dateWib, rupiah } from "@/src/lib/utils";
+import { dateWib } from "@/src/lib/utils";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Card } from "./ui/card";
@@ -25,7 +25,7 @@ export function RentalRequest({ itemId }: { itemId: string }) {
         <div className="skeleton h-80" role="status" aria-label="Memuat pengajuan" />
       </div>
     );
-  const { eligible, item, rules } = query.data;
+  const { eligible } = query.data;
   const gate = !eligible.active
     ? "Akun sedang dibatasi."
     : eligible.isOwner
@@ -34,10 +34,7 @@ export function RentalRequest({ itemId }: { itemId: string }) {
         ? "Verifikasi identitas dulu sebelum menyewa."
         : !eligible.payout
           ? "Isi dan konfirmasi rekening/e-wallet untuk pengembalian deposit."
-          : eligible.completed < rules.new_account_completed_min &&
-              item.itemValue > rules.new_account_value_cap
-            ? `Untuk akun baru, nilai barang maksimal ${rupiah(rules.new_account_value_cap)}.`
-            : null;
+          : null;
   if (gate)
     return (
       <div className="page-container max-w-2xl py-10">

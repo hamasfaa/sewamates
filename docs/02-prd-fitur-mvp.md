@@ -109,7 +109,7 @@ Semua aturan dan angka merujuk ke [01 – Alur & Aturan Sistem](01-alur-dan-atur
 **Sebagai** penyewa, **saya ingin** mengajukan sewa dan tahu biayanya sejak awal.
 - Pilih jadwal mulai (tanggal + jam sesuai jam operasional titik), durasi, titik serah terima, pesan opsional ke pemilik.
 - Ringkasan biaya: harga × hari, deposit, total (kode unik ditambahkan setelah disetujui), jatuh tempo.
-- Validasi sesuai A-3.3 (jarak waktu minimal, bentrok, batas akun baru, rekening pencairan terisi).
+- Validasi sesuai A-3.3 (jarak waktu minimal, bentrok, identitas terverifikasi, rekening/e-wallet terkonfirmasi). Akun baru boleh menyewa barang dengan nilai berapa pun di katalog tanpa syarat jumlah transaksi selesai.
 - Pemilik melihat profil penyewa (badge, rating, jumlah transaksi) lalu Terima/Tolak. Tombol Terima nonaktif bila bentrok dengan hold lain.
 - Hitung mundur batas tanggapan tampil di kedua sisi.
 

@@ -56,7 +56,7 @@ export async function transactionFixtures() {
       ],
     );
     await pool.query(
-      "INSERT INTO items(id,owner_id,campus_id,category_id,title,description,item_value,price_per_day,deposit,min_days,max_days,status,published_at) VALUES($1,$2,$3,$4,'Kamera untuk tugas E2E','Kamera pengujian dalam kondisi baik, lengkap dengan tas dan baterai.',500000,50000,100000,1,7,'aktif',now())",
+      "INSERT INTO items(id,owner_id,campus_id,category_id,title,description,item_value,price_per_day,deposit,min_days,max_days,status,published_at) VALUES($1,$2,$3,$4,'Kamera untuk tugas E2E','Kamera pengujian dalam kondisi baik, lengkap dengan tas dan baterai.',1000000,50000,100000,1,7,'aktif',now())",
       [itemId, people[0].id, campusId, categoryId],
     );
     await pool.query("INSERT INTO item_pickup_points(item_id,pickup_point_id) VALUES($1,$2)", [

@@ -13,7 +13,7 @@ async function fits(page: Page) {
     true,
   );
 }
-test("pengajuan, pembayaran bertahap, verifikasi, dan chat privat", async ({
+test("akun baru menyewa barang Rp1 juta, pembayaran bertahap, verifikasi, dan chat privat", async ({
   browser,
   context,
   page,
@@ -52,6 +52,7 @@ test("pengajuan, pembayaran bertahap, verifikasi, dan chat privat", async ({
     await expect(adminPage.getByText("0123456789", { exact: true })).toBeVisible();
     await fits(adminPage);
     await page.goto(`/barang/${f.itemId}/sewa`);
+    await expect(page.getByRole("heading", { name: "Ajukan sewa", exact: true })).toBeVisible();
     await page.getByLabel("Mulai sewa (WIB)").fill(f.start);
     await page.getByLabel("Durasi (hari)").fill("1");
     await page.getByLabel("Titik serah terima").selectOption(f.pointId);
@@ -73,6 +74,7 @@ test("pengajuan, pembayaran bertahap, verifikasi, dan chat privat", async ({
     await fits(page);
     await fits(ownerPage);
     const rental = (await (await context.request.get(`/api/rentals/${id}`)).json()).rental;
+    expect(rental.listingSnapshot.itemValue).toBe(1000000);
     const transferTime = new Date(Date.now() + 7 * 3600000 - 60000).toISOString().slice(0, 16);
     const image = await QRCode.toBuffer("Gambar pengujian lokal", { width: 120 });
     async function pay(amount: number, index: number) {

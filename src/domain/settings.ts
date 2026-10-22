@@ -19,8 +19,6 @@ export const settingsSchema = z
     booking_lead_hours: integer(1, 168).default(12),
     booking_max_days: integer(1, 365).default(60),
     availability_buffer_hours: integer(0, 48).default(3),
-    new_account_completed_min: integer(1, 100).default(3),
-    new_account_value_cap: integer(1000, 100000000).default(500000),
     owner_response_hours: integer(1, 72).default(24),
     response_before_start_hours: integer(1, 48).default(6),
     payment_window_hours: integer(1, 48).default(6),

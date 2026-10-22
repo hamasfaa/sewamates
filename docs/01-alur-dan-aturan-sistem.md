@@ -118,7 +118,7 @@ Catatan:
 - Ketersediaan: rentang `[mulai, jatuh tempo + jeda 3 jam ⚙)` tidak boleh tumpang tindih dengan rentang transaksi lain berstatus `DISETUJUI`, `MENUNGGU_VERIFIKASI`, `DIBAYAR`, `BERJALAN`, atau dengan blok kalender pemilik. Ditegakkan dengan exclusion constraint di database.
 - Beberapa pengajuan `DIAJUKAN` boleh tumpang tindih. Saat pemilik menyetujui satu, tombol setuju pada pengajuan lain yang bentrok dinonaktifkan; bila hold dilepas (kedaluwarsa/batal), pengajuan tersebut bisa disetujui lagi selama belum kedaluwarsa.
 - Penyewa tidak bisa menyewa barang miliknya sendiri.
-- **Batas akun baru**: penyewa dengan < 3 ⚙ transaksi `SELESAI` tanpa putusan sengketa yang merugikannya hanya bisa menyewa barang bernilai ≤ Rp500.000 ⚙.
+- **Akun baru**: penyewa boleh menyewa barang dengan nilai berapa pun yang tersedia di katalog, termasuk saat belum memiliki transaksi `SELESAI`. Jumlah transaksi selesai tidak membatasi nilai barang; verifikasi identitas dan rekening/e-wallet terkonfirmasi tetap wajib.
 - Batas tanggapan pemilik: **min(24 jam ⚙ sejak diajukan, jadwal mulai − 6 jam ⚙)**.
 
 ### 3.4 Pembayaran (manual, tanpa pihak ketiga)

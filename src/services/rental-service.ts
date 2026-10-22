@@ -50,7 +50,6 @@ export async function rentalOptions(db: Executor, actor: User, itemId: string) {
       active: actor.accountStatus === "aktif",
       payout: Boolean(payout),
       isOwner: detail.owner.id === actor.id,
-      completed: actor.completedCount,
     },
   };
 }
@@ -180,13 +179,6 @@ export async function createRental(db: Database, actor: User, raw: unknown, key?
       input.days >= detail.minDays && input.days <= detail.maxDays,
       "INVALID_DURATION",
       `Durasi harus ${detail.minDays}–${detail.maxDays} hari.`,
-      422,
-    );
-    assert(
-      renter.completedCount >= rules.new_account_completed_min ||
-        detail.itemValue <= rules.new_account_value_cap,
-      "NEW_ACCOUNT_LIMIT",
-      `Akun baru dapat menyewa barang bernilai sampai Rp${rules.new_account_value_cap.toLocaleString("id-ID")}.`,
       422,
     );
     const { pickupPoints } = await import("@/src/db/schema");

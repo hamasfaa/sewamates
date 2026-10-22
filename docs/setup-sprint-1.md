@@ -78,6 +78,15 @@ Tidak ada nomor default, kredensial tetap, atau endpoint publik untuk menaikkan 
 
 Job menandai login dan konfirmasi kedaluwarsa, membersihkan riwayat lebih dari 7 hari, serta membuang cache idempotensi yang habis. Pemeriksaan waktu juga dilakukan langsung saat login/konfirmasi, sehingga job terlambat tidak membuat token lama sah.
 
+Nama ekstensi PostgreSQL untuk Supabase Vault adalah **`supabase_vault`**, sedangkan fungsi dan view berada dalam schema **`vault`**. Pada Supabase hosted biasanya sudah aktif. Jika perlu, jalankan melalui SQL Editor proyek Supabase:
+
+```sql
+CREATE EXTENSION IF NOT EXISTS supabase_vault CASCADE;
+SELECT to_regclass('vault.decrypted_secrets') AS vault_view;
+```
+
+Hasil `vault_view` harus `vault.decrypted_secrets`. Jangan memakai `CREATE EXTENSION vault`, karena itu mencari file `vault.control` yang bukan nama ekstensi Supabase. Jika `supabase_vault` juga tidak tersedia, periksa `SELECT name, installed_version FROM pg_available_extensions WHERE name = 'supabase_vault';` dan pastikan koneksi mengarah ke Supabase yang menyediakan ekstensi tersebut. Lihat [instruksi instalasi resmi](https://github.com/supabase/vault#installation). Query pemeriksaan ini tidak menampilkan nilai secret.
+
 ## Staging dan Sentry
 
 1. Hubungkan repo dengan proyek Vercel, region `sin1`, dan Supabase staging. Isi semua variabel aplikasi pada environment Preview di Vercel. Gunakan domain staging stabil, lalu sesuaikan `NEXT_PUBLIC_APP_URL` dan webhook ke origin tersebut.
