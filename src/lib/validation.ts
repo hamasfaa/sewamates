@@ -69,15 +69,26 @@ export const decisionInput = z
   });
 export const uploadInput = z
   .object({
-    purpose: z.enum(["identity_card", "identity_selfie", "avatar", "item_photo"]),
-    contentType: z.enum(["image/jpeg", "image/png", "image/webp"]),
+    purpose: z.enum([
+      "identity_card",
+      "identity_selfie",
+      "avatar",
+      "item_photo",
+      "payment_proof",
+      "chat_image",
+    ]),
+    contentType: z.enum(["image/jpeg", "image/png", "image/webp", "application/pdf"]),
     size: z
       .number()
       .int()
       .min(1)
       .max(5 * 1024 * 1024),
   })
-  .strict();
+  .strict()
+  .refine(
+    (v) => v.contentType !== "application/pdf" || v.purpose === "payment_proof",
+    "PDF hanya boleh dipakai sebagai bukti transfer.",
+  );
 const limits = LISTING_LIMITS;
 const money = (label: string, min: number, max: number) =>
   z

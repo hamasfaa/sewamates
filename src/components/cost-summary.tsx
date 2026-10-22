@@ -7,11 +7,13 @@ export function CostSummary({
   days,
   deposit,
   className,
+  uniqueCode,
 }: {
   pricePerDay: number;
   days: number;
   deposit: number;
   className?: string;
+  uniqueCode?: number;
 }) {
   const rent = rentTotal(pricePerDay, days);
   return (
@@ -27,13 +29,23 @@ export function CostSummary({
           <dt className="text-muted-foreground">Deposit (dikembalikan)</dt>
           <dd className="tabular font-semibold">{rupiah(deposit)}</dd>
         </div>
+        {uniqueCode !== undefined && (
+          <div className="flex justify-between gap-3">
+            <dt className="text-muted-foreground">
+              Kode unik {String(uniqueCode).padStart(3, "0")} (dikembalikan)
+            </dt>
+            <dd className="tabular font-semibold">{rupiah(uniqueCode)}</dd>
+          </div>
+        )}
         <div className="flex justify-between gap-3 border-t border-border pt-3 text-base font-extrabold">
           <dt>Total dibayar</dt>
-          <dd className="tabular">{rupiah(rent + deposit)}</dd>
+          <dd className="tabular">{rupiah(rent + deposit + (uniqueCode || 0))}</dd>
         </div>
       </dl>
       <p className="mt-2 text-xs leading-5 text-muted-foreground">
-        Kode unik 3 digit ditambahkan saat pembayaran dan ikut dikembalikan bersama deposit.
+        {uniqueCode === undefined
+          ? "Kode unik 3 digit ditambahkan setelah pemilik menyetujui dan ikut dikembalikan bersama deposit."
+          : "Kode unik termasuk bagian deposit dan ikut dikembalikan setelah barang kembali."}
       </p>
     </div>
   );

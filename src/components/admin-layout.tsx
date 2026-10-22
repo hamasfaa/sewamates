@@ -9,6 +9,7 @@ import {
   Settings2,
   Shield,
   ArrowUpRight,
+  Wallet,
 } from "lucide-react";
 import { cn } from "@/src/lib/utils";
 export function AdminLayout({
@@ -39,6 +40,7 @@ export function AdminLayout({
             { href: "/admin", label: "Ringkasan", icon: LayoutDashboard },
             { href: "/admin/verifikasi", label: "Verifikasi identitas", icon: BadgeCheck },
             { href: "/admin/listing", label: "Moderasi listing", icon: PackageSearch },
+            { href: "/admin/pembayaran", label: "Pembayaran", icon: Wallet },
             { href: "/admin/audit", label: "Audit log", icon: ScrollText },
             ...(superAdmin
               ? [{ href: "/admin/pengaturan", label: "Pengaturan", icon: Settings2 }]

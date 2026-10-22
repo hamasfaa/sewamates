@@ -4,7 +4,7 @@ export function proxy(request: NextRequest) {
   // This is an optimistic navigation guard. Services verify the DB session and role.
   if (
     !request.cookies.has("sm_session") &&
-    /^\/((admin|profil|notifikasi|daftar|sewakan)(\/|$)|barang\/[^/]+\/(ubah|kalender)$)/.test(
+    /^\/((admin|profil|notifikasi|daftar|sewakan|transaksi|chat)(\/|$)|barang\/[^/]+\/(ubah|kalender|sewa)$)/.test(
       request.nextUrl.pathname,
     )
   ) {

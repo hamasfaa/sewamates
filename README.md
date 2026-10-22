@@ -2,7 +2,7 @@
 
 Web sewa barang antar mahasiswa, dibangun dengan Next.js App Router, TypeScript, Tailwind CSS, komponen pola shadcn/ui, Drizzle, PostgreSQL/Supabase, dan grammY. Spesifikasi PM ada di [docs](docs/README.md).
 
-**Lingkup saat ini: Sprint 2 — Marketplace.** Listing, moderasi, kategori dan titik serah terima, pencarian, serta detail barang sudah tersedia. Pengajuan sewa, pembayaran, dan chat mengikuti Sprint 3. Lihat status [Sprint 1](docs/sprints/01-fondasi.md) dan [Sprint 2](docs/sprints/02-marketplace.md) untuk hasil verifikasi dan dependensi eksternal yang belum selesai.
+**Lingkup saat ini: Sprint 3 — Transaksi I.** Pengajuan dan persetujuan sewa, pembayaran manual bertahap, verifikasi admin, chat privat, serta job/notifikasi Telegram tersedia. Lihat [Sprint 3](docs/sprints/03-transaksi-i.md) untuk migrasi `0005`, penyiapan rekening platform/cron, hasil tes, dan batas integrasi yang belum diverifikasi. Serah terima dan pelaksanaan pencairan mengikuti Sprint 4.
 
 ## Menjalankan aplikasi
 
@@ -50,6 +50,8 @@ Tes lokal memakai PostgreSQL WASM (PGlite) tanpa Docker. CI menjalankan tes yang
 
 Tes browser memakai build production dan menjalankan server sementara. Ukuran layar: 360, 390, 768, dan 1440 px; Chromium serta WebKit. Integrasi Telegram/Supabase nyata tetap perlu diuji di staging.
 
+`npm run test:e2e:transactions` menguji tiga sesi pengguna dengan API dan PostgreSQL nyata serta tiruan Storage lokal. Wajib `E2E_DATABASE_URL` ke database loopback **sewamates_e2e** yang boleh dikosongkan; build dan port terpisah dijelaskan di [panduan Sprint 3](docs/sprints/03-transaksi-i.md). Tidak ada login bypass di aplikasi.
+
 ## Struktur
 
 ```text
@@ -59,7 +61,7 @@ src/domain/             aturan murni (settings, deposit/komisi, status listing, 
 src/services/           auth, profil, bot, verifikasi, admin, listing, katalog, moderasi, pencarian
 src/db/                 schema Drizzle dan transaksi idempoten
 src/lib/                auth guard, validasi, kriptografi, storage, HTTP
-src/jobs/               job kedaluwarsa login dan konfirmasi
+src/jobs/               job kedaluwarsa login/sewa/pembayaran dan delivery notifikasi
 data/campuses/          snapshot Indonesia, provenance, dan lisensi Hipo
 supabase/migrations/    SQL schema, constraint, RLS, dan bucket
 supabase/jobs.sql       pemasangan cron lewat Vault Supabase
@@ -68,6 +70,6 @@ tests/                  unit, integrasi PostgreSQL, dan browser
 docs/                   spesifikasi PM, setup, ADR, dan status sprint
 ```
 
-API Sprint 1–2 mengikuti URL dokumen 04. Dispatch Route Handler mengarahkan request ke service (rute marketplace di `src/lib/marketplace-routes.ts`); otorisasi dilakukan lagi di server. Semua mutasi browser wajib `Origin` yang sama dengan `NEXT_PUBLIC_APP_URL`. Mutasi profil, rekening, verifikasi, listing, blokir tanggal, keputusan admin, katalog, dan settings mendukung `Idempotency-Key`; pemakaian ulang key dengan isi berbeda mendapat HTTP 409.
+API Sprint 1–3 mengikuti URL dokumen 04. Dispatch Route Handler mengarahkan request ke service lewat `marketplace-routes.ts` dan `transaction-routes.ts`; otorisasi dilakukan lagi di server. Semua mutasi browser wajib `Origin` yang sama dengan `NEXT_PUBLIC_APP_URL`. Mutasi profil, rekening, verifikasi, listing, blokir tanggal, keputusan admin, katalog, settings, pengajuan, pembayaran dan pengiriman chat mendukung `Idempotency-Key`; pemakaian ulang key dengan isi berbeda mendapat HTTP 409.
 
 CI berjalan saat pull request dan push ke `main`. Deployment staging mengikuti CI berhasil apabila GitHub environment `staging` memiliki secret Vercel. Database dimigrasikan secara terpisah sebelum deployment pertama; lihat panduan setup. Tidak ada deployment production pada Sprint 1.

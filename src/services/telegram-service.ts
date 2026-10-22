@@ -1,6 +1,6 @@
 import { InlineKeyboard, Keyboard } from "grammy";
 import type { Update, Message, CallbackQuery } from "grammy/types";
-import { and, desc, eq, gt, ne, sql } from "drizzle-orm";
+import { and, desc, eq, gt, ne, or, sql } from "drizzle-orm";
 import type { Database, Executor } from "@/src/db";
 import {
   actionConfirmations,
@@ -15,6 +15,8 @@ import { hash, matchOptions, decrypt, maskAccount } from "@/src/lib/crypto";
 import { normalizePhone, payoutInput } from "@/src/lib/validation";
 import { appUrl } from "@/src/lib/env";
 import { telegramApi } from "./telegram-api";
+import { rentals } from "@/src/db/schema";
+import { RENTAL_LABELS } from "@/src/domain/rental-state-machine";
 
 type PendingLogin = typeof loginRequests.$inferSelect;
 async function showNumbers(chatId: number, request: PendingLogin) {
@@ -141,6 +143,38 @@ async function handleMessage(db: Executor, message: Message) {
       reply_markup: { remove_keyboard: true },
     });
     await showNumbers(chat, request);
+    return;
+  }
+  if (/^\/transaksi(?:@\w+)?$/.test(text)) {
+    const active = linked
+      ? await db
+          .select()
+          .from(rentals)
+          .where(
+            and(
+              or(eq(rentals.ownerId, linked.id), eq(rentals.renterId, linked.id)),
+              sql`${rentals.status} NOT IN ('SELESAI','DITOLAK','KADALUARSA','DIBATALKAN')`,
+            ),
+          )
+          .orderBy(desc(rentals.createdAt))
+          .limit(5)
+      : [];
+    const keyboard = new InlineKeyboard();
+    for (const rental of active)
+      keyboard
+        .url(rental.publicCode, new URL(`/transaksi/${rental.id}`, appUrl()).toString())
+        .row();
+    keyboard.url(
+      linked ? "Semua transaksi" : "Masuk ke SewaMates",
+      new URL(linked ? "/transaksi" : "/masuk", appUrl()).toString(),
+    );
+    await telegramApi().sendMessage(
+      chat,
+      active.length
+        ? active.map((r) => `${r.publicCode}: ${RENTAL_LABELS[r.status]}`).join("\n")
+        : "Belum ada transaksi aktif. Mulai dari aplikasi SewaMates.",
+      { reply_markup: keyboard },
+    );
     return;
   }
   if (/^\/bantuan(?:@\w+)?$/.test(text)) {
@@ -285,15 +319,13 @@ async function handleCallback(db: Executor, query: CallbackQuery) {
         .insert(payoutAccounts)
         .values({ userId: user.id, ...payload })
         .onConflictDoUpdate({ target: payoutAccounts.userId, set: payload });
-      await db
-        .insert(notifications)
-        .values({
-          userId: user.id,
-          type: "payout_account_changed",
-          title: "Rekening pencairan diperbarui",
-          body: `${payload.provider} · ${maskAccount(decrypt(payload.accountNoEnc))}. Rekening ini dipakai untuk pencairan berikutnya.`,
-          link: "/profil/rekening",
-        });
+      await db.insert(notifications).values({
+        userId: user.id,
+        type: "payout_account_changed",
+        title: "Rekening pencairan diperbarui",
+        body: `${payload.provider} · ${maskAccount(decrypt(payload.accountNoEnc))}. Rekening ini dipakai untuk pencairan berikutnya.`,
+        link: "/profil/rekening",
+      });
     }
     await db
       .update(actionConfirmations)

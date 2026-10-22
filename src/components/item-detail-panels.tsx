@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { CalendarDays, MessageCircle, Minus, Pencil, Plus, ShieldCheck } from "lucide-react";
 import { api } from "@/src/lib/client-api";
 import { shiftMonth } from "@/src/domain/availability";
@@ -13,6 +14,24 @@ import { Card } from "./ui/card";
 export type ViewerState = "owner" | "guest" | "unverified" | "verified";
 // Rental requests and chat open in Sprint 3; until then the actions explain the next step.
 function RentAction({ itemId, viewer }: { itemId: string; viewer: ViewerState }) {
+  const router = useRouter(),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
+  async function chat() {
+    setBusy(true);
+    setError("");
+    try {
+      const value = await api<{ id: string }>("/api/conversations", {
+        method: "POST",
+        body: JSON.stringify({ itemId }),
+      });
+      router.push(`/chat/${value.id}`);
+    } catch (error) {
+      setError((error as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
   if (viewer === "owner")
     return (
       <div className="flex gap-2">
@@ -30,34 +49,49 @@ function RentAction({ itemId, viewer }: { itemId: string; viewer: ViewerState })
       </div>
     );
   return (
-    <div className="flex gap-2">
-      <Button
-        variant="outline"
-        size="icon"
-        disabled
-        aria-label="Chat pemilik (dibuka bersama pengajuan sewa)"
-        title="Chat dibuka bersama pengajuan sewa"
-      >
-        <MessageCircle size={18} />
-      </Button>
-      {viewer === "guest" ? (
-        <Button asChild className="flex-1">
-          <Link href="/masuk">Masuk untuk menyewa</Link>
-        </Button>
-      ) : viewer === "unverified" ? (
-        <Button asChild className="flex-1">
-          <Link href="/profil/verifikasi">Verifikasi untuk menyewa</Link>
-        </Button>
-      ) : (
-        <Button className="flex-1" disabled aria-describedby="rent-soon">
-          Ajukan sewa
-        </Button>
+    <div>
+      <div className="flex gap-2">
+        {viewer === "verified" ? (
+          <Button
+            variant="outline"
+            size="icon"
+            disabled={busy}
+            aria-label="Chat pemilik"
+            onClick={() => void chat()}
+          >
+            <MessageCircle size={18} />
+          </Button>
+        ) : (
+          <Button asChild variant="outline" size="icon" aria-label="Chat pemilik">
+            <Link href={viewer === "guest" ? "/masuk" : "/profil/verifikasi"}>
+              <MessageCircle size={18} />
+            </Link>
+          </Button>
+        )}
+        {viewer === "guest" ? (
+          <Button asChild className="flex-1">
+            <Link href="/masuk">Masuk untuk menyewa</Link>
+          </Button>
+        ) : viewer === "unverified" ? (
+          <Button asChild className="flex-1">
+            <Link href="/profil/verifikasi">Verifikasi untuk menyewa</Link>
+          </Button>
+        ) : (
+          <Button asChild className="flex-1">
+            <Link href={`/barang/${itemId}/sewa`}>Ajukan sewa</Link>
+          </Button>
+        )}
+      </div>
+      {error && (
+        <p className="mt-2 text-xs text-destructive" role="alert">
+          {error}
+        </p>
       )}
     </div>
   );
 }
 function actionNote(viewer: ViewerState) {
-  if (viewer === "verified") return "Pengajuan sewa dan chat dibuka pada pembaruan berikutnya.";
+  if (viewer === "verified") return "Pilih jadwal dan titik serah terima sebelum mengajukan sewa.";
   if (viewer === "unverified")
     return "Pengguna terverifikasi bisa mengajukan sewa dan chat pemilik.";
   return null;

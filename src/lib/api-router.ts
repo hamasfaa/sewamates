@@ -13,6 +13,9 @@ import { body, checkOrigin, clientIp, endpoint, json } from "./http";
 import { uploadInput } from "./validation";
 import { canUpload, signUpload } from "./storage";
 import { privateMarketplaceRoute, publicMarketplaceRoute } from "./marketplace-routes";
+import { transactionRoute } from "./transaction-routes";
+import { expireRentals } from "@/src/jobs/expire-rentals";
+import { deliverNotifications } from "@/src/jobs/deliver-notifications";
 import {
   startLogin,
   consumeLogin,
@@ -84,9 +87,11 @@ export const dispatch = endpoint(async (request) => {
       "Job tidak terotorisasi.",
       403,
     );
-    if (parts[2] !== "expire-login-requests")
-      throw new AppError("NOT_FOUND", "Job tidak ditemukan.", 404);
-    return json(await expireLoginRequests(getDb()));
+    if (parts[2] === "expire-login-requests") return json(await expireLoginRequests(getDb()));
+    if (parts[2] === "expire-requests") return json(await expireRentals(getDb(), "requests"));
+    if (parts[2] === "expire-payments") return json(await expireRentals(getDb(), "payments"));
+    if (parts[2] === "deliver-notifications") return json(await deliverNotifications(getDb()));
+    throw new AppError("NOT_FOUND", "Job tidak ditemukan.", 404);
   }
   if (path === "auth/telegram/start" && method === "POST") {
     assert(
@@ -172,7 +177,7 @@ export const dispatch = endpoint(async (request) => {
   // All remaining routes require a live server-side session, including every admin endpoint.
   const actor = await requireActor(
     parts[0] === "admin"
-      ? ["settings", "categories", "pickup-points"].includes(parts[1])
+      ? ["settings", "categories", "pickup-points", "platform-accounts"].includes(parts[1])
         ? ["super_admin"]
         : ["admin", "super_admin"]
       : undefined,
@@ -294,6 +299,8 @@ export const dispatch = endpoint(async (request) => {
         idempotencyKey,
       ),
     );
+  const transactions = await transactionRoute(route, actor.user, idempotencyKey);
+  if (transactions) return transactions;
   const privateRoute = await privateMarketplaceRoute(route, actor.user, idempotencyKey);
   if (privateRoute) return privateRoute;
   throw new AppError("NOT_FOUND", "Endpoint tidak ditemukan.", 404);

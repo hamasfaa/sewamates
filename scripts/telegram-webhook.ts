@@ -9,6 +9,7 @@ if (!token || !secret || !url?.startsWith("https://"))
 const bot = new Api(token);
 await bot.setMyCommands([
   { command: "start", description: "Masuk dan hubungkan akun SewaMates" },
+  { command: "transaksi", description: "Lihat transaksi sewa yang aktif" },
   { command: "bantuan", description: "Panduan penggunaan SewaMates" },
 ]);
 await bot.setWebhook(`${url.replace(/\/$/, "")}/api/telegram/webhook`, {

@@ -1,4 +1,5 @@
 import { PGlite } from "@electric-sql/pglite";
+import { btree_gist } from "@electric-sql/pglite/contrib/btree_gist";
 import { drizzle as drizzleLite } from "drizzle-orm/pglite";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
@@ -20,7 +21,7 @@ export async function testDatabase() {
     execRaw = (source) => pool.query(source);
     await execRaw("DROP SCHEMA public CASCADE; CREATE SCHEMA public");
   } else {
-    const lite = new PGlite();
+    const lite = new PGlite({ extensions: { btree_gist } });
     // Drizzle's PostgreSQL query and transaction APIs are shared by both drivers.
     db = drizzleLite(lite, { schema }) as unknown as Database;
     close = () => lite.close();
@@ -39,7 +40,7 @@ export const campusId = "00000000-0000-4000-8000-000000000001";
 let sequence = 0;
 export async function resetDatabase(db: Database) {
   await db.execute(
-    sql`TRUNCATE campuses, users, identity_verifications, payout_accounts, sessions, login_requests, action_confirmations, telegram_updates, settings, admin_audit_logs, notifications, upload_tickets, idempotency_keys, categories, pickup_points, items, item_photos, item_pickup_points, availability_blocks CASCADE`,
+    sql`TRUNCATE campuses, users, identity_verifications, payout_accounts, sessions, login_requests, action_confirmations, telegram_updates, settings, admin_audit_logs, notifications, upload_tickets, idempotency_keys, categories, pickup_points, items, item_photos, item_pickup_points, availability_blocks, platform_accounts, delivery_throttles CASCADE`,
   );
   await db.insert(schema.campuses).values({ id: campusId, name: "Kampus Surabaya" });
   await db

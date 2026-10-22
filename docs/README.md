@@ -39,3 +39,5 @@ Pada diagram asli, kotak "Pengembalian & cek kondisi" muncul dua kali. Kotak ked
 Pengembangan dimulai dari [Sprint 1 — Fondasi](sprints/01-fondasi.md). Panduan konfigurasi ada di [Setup Sprint 1](setup-sprint-1.md), dan keputusan implementasi awal dicatat pada [ADR 0001](decisions/0001-fondasi-sprint-1.md).
 
 [Sprint 2 — Marketplace](sprints/02-marketplace.md) dikerjakan atas permintaan pemilik aplikasi sementara sisa DoD Sprint 1 (staging dan integrasi nyata) masih terbuka. Keputusan implementasinya ada di [ADR 0003](decisions/0003-marketplace-sprint-2.md), dan langkah penyiapan tambahan ada di dokumen sprint tersebut.
+
+Setelah pemilik aplikasi menyatakan uji Sprint 2 aman, pekerjaan dilanjutkan ke [Sprint 3 — Transaksi I](sprints/03-transaksi-i.md). Keputusan polling, uang, dan fondasi refund ada di [ADR 0004](decisions/0004-transaksi-sprint-3.md); langkah pengujian bersama tersedia di [checklist E2E Sprint 3](sprints/03-transaksi-i-e2e.md).

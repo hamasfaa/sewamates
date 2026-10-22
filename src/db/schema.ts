@@ -17,6 +17,8 @@ import {
 import { sql } from "drizzle-orm";
 import type { PickupHours } from "@/src/domain/pickup-points";
 import { ITEM_STATUSES } from "@/src/domain/listing";
+import { RENTAL_STATUSES } from "@/src/domain/rental-state-machine";
+import type { Settings } from "@/src/domain/settings";
 
 const created = () => timestamp("created_at", { withTimezone: true }).defaultNow().notNull();
 const updated = () => timestamp("updated_at", { withTimezone: true }).defaultNow().notNull();
@@ -217,7 +219,16 @@ export const uploadTickets = pgTable("upload_tickets", {
     .notNull()
     .references(() => users.id),
   path: text().notNull().unique(),
-  purpose: text({ enum: ["identity_card", "identity_selfie", "avatar", "item_photo"] }).notNull(),
+  purpose: text({
+    enum: [
+      "identity_card",
+      "identity_selfie",
+      "avatar",
+      "item_photo",
+      "payment_proof",
+      "chat_image",
+    ],
+  }).notNull(),
   contentType: text("content_type").notNull(),
   used: boolean().notNull().default(false),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
@@ -325,3 +336,194 @@ export const availabilityBlocks = pgTable(
 export type User = typeof users.$inferSelect;
 export type Role = User["role"];
 export type Item = typeof items.$inferSelect;
+
+export const platformAccounts = pgTable("platform_accounts", {
+  id: uuid().primaryKey().defaultRandom(),
+  type: text().notNull(),
+  provider: text().notNull(),
+  accountNo: text("account_no").notNull(),
+  accountName: text("account_name").notNull(),
+  active: boolean().notNull().default(true),
+  createdAt: created(),
+  updatedAt: updated(),
+});
+export const conversations = pgTable(
+  "conversations",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    itemId: uuid("item_id")
+      .notNull()
+      .references(() => items.id),
+    renterId: uuid("renter_id")
+      .notNull()
+      .references(() => users.id),
+    ownerId: uuid("owner_id")
+      .notNull()
+      .references(() => users.id),
+    lastMessageAt: timestamp("last_message_at", { withTimezone: true }).notNull().defaultNow(),
+    renterLastReadAt: timestamp("renter_last_read_at", { withTimezone: true }),
+    ownerLastReadAt: timestamp("owner_last_read_at", { withTimezone: true }),
+    createdAt: created(),
+  },
+  (t) => [uniqueIndex("conversation_pair").on(t.itemId, t.renterId)],
+);
+export const rentalStatus = pgEnum("rental_status", RENTAL_STATUSES);
+export const rentals = pgTable("rentals", {
+  id: uuid().primaryKey().defaultRandom(),
+  publicCode: text("public_code").notNull().unique(),
+  itemId: uuid("item_id")
+    .notNull()
+    .references(() => items.id),
+  ownerId: uuid("owner_id")
+    .notNull()
+    .references(() => users.id),
+  renterId: uuid("renter_id")
+    .notNull()
+    .references(() => users.id),
+  conversationId: uuid("conversation_id")
+    .notNull()
+    .references(() => conversations.id),
+  pickupPointId: uuid("pickup_point_id")
+    .notNull()
+    .references(() => pickupPoints.id),
+  startAt: timestamp("start_at", { withTimezone: true }).notNull(),
+  dueAt: timestamp("due_at", { withTimezone: true }).notNull(),
+  days: integer().notNull(),
+  blockPeriod: tstzrange("block_period").notNull(),
+  pricePerDay: bigint("price_per_day", { mode: "number" }).notNull(),
+  rentTotal: bigint("rent_total", { mode: "number" }).notNull(),
+  deposit: bigint({ mode: "number" }).notNull(),
+  commissionRateBp: integer("commission_rate_bp").notNull(),
+  commissionAmount: bigint("commission_amount", { mode: "number" }).notNull(),
+  uniqueCode: integer("unique_code"),
+  amountDue: bigint("amount_due", { mode: "number" }).notNull(),
+  amountReceived: bigint("amount_received", { mode: "number" }).notNull().default(0),
+  rulesSnapshot: jsonb("rules_snapshot").notNull().$type<Settings>(),
+  listingSnapshot: jsonb("listing_snapshot").notNull().$type<Record<string, unknown>>(),
+  status: rentalStatus().notNull().default("DIAJUKAN"),
+  respondBy: timestamp("respond_by", { withTimezone: true }).notNull(),
+  payBy: timestamp("pay_by", { withTimezone: true }),
+  cancelledBy: uuid("cancelled_by").references(() => users.id),
+  cancelReason: text("cancel_reason"),
+  version: integer().notNull().default(1),
+  createdAt: created(),
+  updatedAt: updated(),
+});
+export type Rental = typeof rentals.$inferSelect;
+export const rentalEvents = pgTable("rental_events", {
+  id: uuid().primaryKey().defaultRandom(),
+  rentalId: uuid("rental_id")
+    .notNull()
+    .references(() => rentals.id),
+  fromStatus: rentalStatus("from_status"),
+  toStatus: rentalStatus("to_status").notNull(),
+  actorId: uuid("actor_id").references(() => users.id),
+  actorType: text("actor_type").notNull(),
+  meta: jsonb().notNull().default({}).$type<Record<string, unknown>>(),
+  createdAt: created(),
+});
+export const messages = pgTable("messages", {
+  id: uuid().primaryKey().defaultRandom(),
+  conversationId: uuid("conversation_id")
+    .notNull()
+    .references(() => conversations.id),
+  senderId: uuid("sender_id").references(() => users.id),
+  rentalId: uuid("rental_id").references(() => rentals.id),
+  type: text().notNull(),
+  body: text().notNull().default(""),
+  imagePath: text("image_path"),
+  createdAt: created(),
+});
+export const userBlocks = pgTable(
+  "user_blocks",
+  {
+    blockerId: uuid("blocker_id")
+      .notNull()
+      .references(() => users.id),
+    blockedId: uuid("blocked_id")
+      .notNull()
+      .references(() => users.id),
+    createdAt: created(),
+  },
+  (t) => [primaryKey({ columns: [t.blockerId, t.blockedId] })],
+);
+export const reports = pgTable("reports", {
+  id: uuid().primaryKey().defaultRandom(),
+  reporterId: uuid("reporter_id")
+    .notNull()
+    .references(() => users.id),
+  targetType: text("target_type").notNull(),
+  targetId: uuid("target_id").notNull(),
+  reason: text().notNull(),
+  status: text().notNull().default("menunggu"),
+  createdAt: created(),
+});
+export const payments = pgTable("payments", {
+  id: uuid().primaryKey().defaultRandom(),
+  rentalId: uuid("rental_id")
+    .notNull()
+    .references(() => rentals.id),
+  platformAccountId: uuid("platform_account_id")
+    .notNull()
+    .references(() => platformAccounts.id),
+  platformSnapshot: jsonb("platform_snapshot").notNull().$type<Record<string, unknown>>(),
+  proofPath: text("proof_path").notNull().unique(),
+  proofSha256: text("proof_sha256").notNull(),
+  senderName: text("sender_name").notNull(),
+  transferredAt: timestamp("transferred_at", { withTimezone: true }).notNull(),
+  claimedAmount: bigint("claimed_amount", { mode: "number" }).notNull(),
+  status: text().notNull().default("menunggu"),
+  verifiedAmount: bigint("verified_amount", { mode: "number" }),
+  rejectReason: text("reject_reason"),
+  verifiedBy: uuid("verified_by").references(() => users.id),
+  verifiedAt: timestamp("verified_at", { withTimezone: true }),
+  targetAt: timestamp("target_at", { withTimezone: true }).notNull(),
+  createdAt: created(),
+});
+export const ledgerEntries = pgTable("ledger_entries", {
+  id: uuid().primaryKey().defaultRandom(),
+  journalId: uuid("journal_id").notNull(),
+  rentalId: uuid("rental_id").references(() => rentals.id),
+  paymentId: uuid("payment_id").references(() => payments.id),
+  account: text().notNull(),
+  debit: bigint({ mode: "number" }).notNull().default(0),
+  credit: bigint({ mode: "number" }).notNull().default(0),
+  memo: text().notNull(),
+  createdAt: created(),
+});
+export const payoutTasks = pgTable("payout_tasks", {
+  id: uuid().primaryKey().defaultRandom(),
+  rentalId: uuid("rental_id")
+    .notNull()
+    .references(() => rentals.id),
+  recipientId: uuid("recipient_id")
+    .notNull()
+    .references(() => users.id),
+  sourcePaymentId: uuid("source_payment_id")
+    .unique()
+    .references(() => payments.id),
+  kind: text().notNull(),
+  amount: bigint({ mode: "number" }).notNull(),
+  accountSnapshot: jsonb("account_snapshot").notNull().$type<Record<string, unknown>>(),
+  status: text().notNull().default("menunggu"),
+  targetAt: timestamp("target_at", { withTimezone: true }).notNull(),
+  createdAt: created(),
+});
+export const notificationDeliveries = pgTable("notification_deliveries", {
+  id: uuid().primaryKey().defaultRandom(),
+  notificationId: uuid("notification_id")
+    .notNull()
+    .references(() => notifications.id),
+  channel: text().notNull().default("telegram"),
+  chatId: bigint("chat_id", { mode: "number" }),
+  status: text().notNull().default("antre"),
+  attempts: integer().notNull().default(0),
+  lastError: text("last_error"),
+  nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).notNull().defaultNow(),
+  claimedUntil: timestamp("claimed_until", { withTimezone: true }),
+  createdAt: created(),
+});
+export const deliveryThrottles = pgTable("delivery_throttles", {
+  key: text().primaryKey(),
+  nextAt: timestamp("next_at", { withTimezone: true }).notNull(),
+});

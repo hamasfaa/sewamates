@@ -7,6 +7,7 @@ import {
   itemPhotos,
   itemPickupPoints,
   items,
+  rentals,
   notifications,
   payoutAccounts,
   pickupPoints,
@@ -47,6 +48,7 @@ import { blockInput, itemInput, type ItemInput } from "@/src/lib/validation";
 import { activeCategories, activePickupPoints } from "./catalog-service";
 import { requireActive, requireOnboarded, requireVerified } from "./profile-service";
 import { getSettings } from "./settings-service";
+import { notifyAdmins } from "./notification-service";
 
 // Search and detail share one definition of "publicly listed" (F5): requires users and categories joins.
 // Correlated subqueries name "items"."id" literally: Drizzle drops table qualifiers from
@@ -268,6 +270,12 @@ export async function createItem(db: Database, user: User, raw: unknown, key?: s
     await tx
       .insert(itemPickupPoints)
       .values(pickupPointIds.map((pickupPointId) => ({ itemId: item.id, pickupPointId })));
+    await notifyAdmins(
+      tx,
+      "Listing perlu ditinjau",
+      `Listing “${fields.title}” menunggu moderasi.`,
+      "/admin/listing",
+    );
     await tx.insert(notifications).values({
       userId: owner.id,
       type: "listing_submitted",
@@ -347,7 +355,13 @@ export async function updateItem(db: Database, user: User, id: string, raw: unkn
     await tx
       .insert(itemPickupPoints)
       .values(pickupPointIds.map((pickupPointId) => ({ itemId: id, pickupPointId })));
-    if (resubmitted)
+    if (resubmitted) {
+      await notifyAdmins(
+        tx,
+        "Listing perlu ditinjau ulang",
+        `Perubahan “${fields.title}” menunggu moderasi.`,
+        "/admin/listing",
+      );
       await tx.insert(notifications).values({
         userId: user.id,
         type: "listing_submitted",
@@ -355,6 +369,7 @@ export async function updateItem(db: Database, user: User, id: string, raw: unkn
         body: `Perubahan “${fields.title}” akan diperiksa admin sebelum tampil lagi.`,
         link: "/profil/listing",
       });
+    }
     return { id, status, reviewRequired: status === "menunggu_review" };
   });
 }
@@ -378,7 +393,24 @@ export async function changeItemStatus(
     }
     const next = ownerTransition(item.status, action);
     assert(next, "INVALID_STATUS", transitionErrors[action], 409);
-    // Sprint 3 adds the A-3.2 guard against archiving while a rental is still non-final.
+    if (action === "archive") {
+      const [active] = await tx
+        .select({ id: rentals.id })
+        .from(rentals)
+        .where(
+          and(
+            eq(rentals.itemId, id),
+            sql`${rentals.status} NOT IN ('SELESAI','DITOLAK','KADALUARSA','DIBATALKAN')`,
+          ),
+        )
+        .limit(1);
+      assert(
+        !active,
+        "ACTIVE_RENTAL",
+        "Listing masih memiliki transaksi aktif dan belum bisa diarsipkan.",
+        409,
+      );
+    }
     await tx
       .update(items)
       .set({ status: next, version: item.version + 1 })
@@ -469,6 +501,23 @@ export async function addBlock(
       !overlap,
       "BLOCK_OVERLAP",
       "Sebagian tanggal itu sudah diblokir. Pilih rentang lain.",
+      409,
+    );
+    const [hold] = await tx
+      .select({ id: rentals.id })
+      .from(rentals)
+      .where(
+        and(
+          eq(rentals.itemId, itemId),
+          inArray(rentals.status, ["DISETUJUI", "MENUNGGU_VERIFIKASI", "DIBAYAR", "BERJALAN"]),
+          sql`${rentals.blockPeriod} && ${range}`,
+        ),
+      )
+      .limit(1);
+    assert(
+      !hold,
+      "RENTAL_OVERLAP",
+      "Tanggal bertabrakan dengan transaksi yang sudah disetujui.",
       409,
     );
     const [{ upcoming }] = await tx
@@ -598,7 +647,20 @@ export async function unavailableDays(db: Executor, itemId: string, month: strin
         sql`${availabilityBlocks.period} && ${rangeSql(monthRange(month))}`,
       ),
     );
-  return blockedDays(rows, month);
+  const holds = await db
+    .select({
+      start: sql<Date>`lower(${rentals.blockPeriod})`.mapWith(toDate),
+      end: sql<Date>`upper(${rentals.blockPeriod})`.mapWith(toDate),
+    })
+    .from(rentals)
+    .where(
+      and(
+        eq(rentals.itemId, itemId),
+        inArray(rentals.status, ["DISETUJUI", "MENUNGGU_VERIFIKASI", "DIBAYAR", "BERJALAN"]),
+        sql`${rentals.blockPeriod} && ${rangeSql(monthRange(month))}`,
+      ),
+    );
+  return blockedDays([...rows, ...holds], month);
 }
 export async function itemAvailability(
   db: Executor,

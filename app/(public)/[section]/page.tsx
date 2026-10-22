@@ -1,23 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { MessageCircle, ArrowLeftRight, ShieldCheck } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import { Card } from "@/src/components/ui/card";
 import { Button } from "@/src/components/ui/button";
-// Chat and transactions open in Sprint 3; search and listing have their own routes.
-const upcoming = {
-  chat: {
-    icon: MessageCircle,
-    title: "Teman pinjam, tinggal sapa",
-    description:
-      "Chat dengan pemilik barang dibuka bersama pengajuan sewa. Sambil menunggu, lihat-lihat barang dari teman kampus dulu.",
-  },
-  transaksi: {
-    icon: ArrowLeftRight,
-    title: "Cerita sewamu dimulai di sini",
-    description:
-      "Pengajuan sewa sedang disiapkan. Nantinya kamu bisa memantau barang yang disewa dan disewakan di halaman ini.",
-  },
-};
 export default async function Page({ params }: { params: Promise<{ section: string }> }) {
   const { section } = await params;
   if (["ketentuan", "privasi"].includes(section))
@@ -57,7 +42,8 @@ export default async function Page({ params }: { params: Promise<{ section: stri
               <>
                 <p>
                   Data yang dipakai pada tahap ini meliputi nomor HP, ID Telegram, nama, kampus,
-                  foto profil, dokumen verifikasi, rekening pencairan, dan sesi perangkat.
+                  foto profil, dokumen verifikasi, rekening pencairan, transaksi, bukti transfer,
+                  pesan chat, dan sesi perangkat.
                 </p>
                 <p>
                   Nomor HP tidak ditampilkan di profil publik. Foto identitas hanya diakses admin
@@ -82,23 +68,5 @@ export default async function Page({ params }: { params: Promise<{ section: stri
         </Card>
       </div>
     );
-  if (!(section in upcoming)) notFound();
-  const value = upcoming[section as keyof typeof upcoming],
-    Icon = value.icon;
-  return (
-    <div className="page-container max-w-3xl py-12">
-      <Card className="px-6 py-14 text-center">
-        <span className="mx-auto mb-6 flex size-20 items-center justify-center rounded-3xl bg-secondary text-primary">
-          <Icon size={36} />
-        </span>
-        <h1 className="text-2xl sm:text-3xl">{value.title}</h1>
-        <p className="mx-auto mt-4 max-w-md text-sm leading-7 text-muted-foreground">
-          {value.description}
-        </p>
-        <Button asChild className="mt-7">
-          <Link href="/cari">Lihat barang</Link>
-        </Button>
-      </Card>
-    </div>
-  );
+  notFound();
 }

@@ -23,7 +23,7 @@ Alasan: satu basis kode, rilis tanpa proses toko aplikasi, tautan mudah dibagika
 | ORM / migrasi | Drizzle ORM + migrasi SQL | Constraint khusus (exclusion, partial unique) ditulis manual di SQL |
 | Auth | **Login via Telegram bot** (A-3.1) + sesi milik sendiri (tabel `sessions`, cookie httpOnly) | Supabase Auth tidak dipakai. Untuk Realtime, server menerbitkan JWT berumur 1 jam (`sub` = user id, `role` = authenticated) yang ditandatangani JWT secret Supabase agar RLS berlaku; jika tidak memungkinkan, chat memakai polling |
 | Storage | Supabase Storage | Bucket publik dan privat, lihat 6.2 |
-| Real-time | Supabase Realtime (chat, badge notifikasi) | Fallback polling 5 detik |
+| Real-time | Sprint 3 menggunakan polling terotorisasi | Ruang chat 1,5 detik, daftar 5 detik; spike dan keputusan Realtime ada di ADR 0004 |
 | Job terjadwal | `pg_cron` + `pg_net` memanggil endpoint internal tiap menit | Cron Vercel paket gratis hanya sekali per hari, jadi tidak dipakai |
 | Telegram bot | **Telegram Bot API** (bot dibuat lewat BotFather), library grammY | Gratis, tanpa persetujuan templat. Mode **webhook** ke `/api/telegram/webhook` dengan `secret_token`. Batas kirim ±30 pesan/detik total dan ±1 pesan/detik per chat, ditangani antrean `notification_deliveries` |
 | Web push | Standar Web Push (VAPID), library `web-push` | – |
@@ -32,6 +32,8 @@ Alasan: satu basis kode, rilis tanpa proses toko aplikasi, tautan mudah dibagika
 | Tes | Vitest (unit/integrasi), Playwright (e2e) | DB tes dari Supabase CLI lokal |
 
 Akses data: **semua penulisan lewat server** (Route Handlers / Server Actions) memakai koneksi server. Row Level Security tetap diaktifkan sebagai lapis kedua: tabel sensitif menolak semua akses dari klien, dan tabel chat/notifikasi hanya bisa dibaca peserta (dibutuhkan oleh Realtime).
+
+Implementasi Sprint 3 memakai server untuk pembacaan chat juga, sehingga tabel chat menolak akses langsung `anon`/`authenticated`. JWT Realtime belum diterbitkan; peserta diperiksa dari sesi aplikasi pada setiap request. Lihat [ADR 0004](decisions/0004-transaksi-sprint-3.md). Model berikut mencakup target sprint selanjutnya; kolom serah terima/sengketa/pencairan lengkap belum tersedia pada `0005`.
 
 ## 3. Struktur Repo
 
@@ -105,6 +107,7 @@ rentals(id, public_code UNIQUE,                 -- mis. SM-2610-00123, tampil di
         unique_code, amount_due,                         -- amount_due = rent_total + deposit + unique_code
         amount_received,                                 -- jumlah bukti bayar yang diterima
         rules_snapshot jsonb,                            -- settings yang berlaku saat disetujui (denda, toleransi, biaya batal, dll)
+        listing_snapshot jsonb,                          -- judul, kondisi/deskripsi, foto dan titik saat pengajuan
         late_fee, status, status_before_dispute, respond_by, pay_by, review_ends_at, returned_at,
         handover_code_hash, return_code_hash, code_failed_attempts, code_locked_until,
         reschedule_count, cancelled_by, cancel_reason, version)
@@ -124,12 +127,15 @@ no_show_reports(id, rental_id, reported_by, reported_party, status[menunggu|dite
 ```
 Bentrok dengan `availability_blocks` dicek di service dalam transaksi DB yang mengunci baris `items` (`SELECT … FOR UPDATE`), karena exclusion constraint tidak bisa lintas tabel.
 
+Migrasi `0005` mengisi kolom sampai kebutuhan Sprint 3: jadwal, snapshot, angka uang, status, `respond_by`/`pay_by`, pembatalan gratis dan versi. Kolom serah terima, denda, jadwal ulang, sengketa dan masa cek ditambahkan pada Sprint 4. Pembuatan kode publik memakai sequence dan bulan WIB.
+
 ### 4.4 Uang
 ```
 platform_accounts(id, type[bank|ewallet], provider, account_no, account_name, active)
 payments(id, rental_id, platform_account_id, proof_path, sender_name, transferred_at, claimed_amount,
          status[menunggu|diterima|ditolak], verified_amount, reject_reason, verified_by, verified_at)
          -- satu baris per bukti; amount_received = SUM(verified_amount) yang diterima
+         -- Sprint 3 juga menyimpan platform_snapshot, proof_sha256, target_at, UNIQUE(proof_path), UNIQUE(rental_id,proof_sha256)
 payout_tasks(id, rental_id, recipient_id, kind[pencairan_pemilik|refund_penyewa|penyesuaian],
              amount CHECK (amount > 0), account_snapshot jsonb,
              status[menunggu|diklaim|selesai], claimed_by, claimed_until,
@@ -153,6 +159,8 @@ reconciliations(id, date, platform_account_id, actual_balance, ledger_balance, n
 | Penarikan komisi | `pendapatan_komisi` | `kas:<rek. sumber>` |
 
 Saldo = jumlah entri; tidak ada kolom saldo yang diubah langsung. `ledger_balance` rekonsiliasi = saldo akun `kas:<rekening>`. Invarian yang diuji: saldo `dana_ditahan` per transaksi final = 0; saldo `hutang_*` per tugas selesai = 0; `pendapatan_komisi` tidak pernah negatif.
+
+Fondasi `payout_tasks` pada Sprint 3 berisi kewajiban refund, `source_payment_id UNIQUE`, snapshot rekening terenkripsi dan target waktu. Klaim, sumber transfer, biaya, dan bukti penyelesaian baru pada Sprint 4. `ledger_entries` menambahkan referensi `payment_id`; keseimbangan jurnal diperiksa oleh deferred trigger dan entri tidak dapat di-update/delete.
 
 ### 4.5 Sengketa, chat, sosial
 ```
@@ -218,6 +226,7 @@ GET    /api/users/:id                   GET /api/users/:id/reviews
 
 # Transaksi
 POST   /api/rentals                     GET /api/rentals?role=renter|owner&state=
+GET    /api/items/:id/rental-options    (detail, aturan dan kelayakan form pengajuan)
 GET    /api/rentals/:id                 (detail + timeline + bukti)
 POST   /api/rentals/:id/approve | reject | cancel
 POST   /api/rentals/:id/payments        (unggah bukti transfer)
@@ -231,9 +240,9 @@ POST   /api/rentals/:id/disputes        POST /api/disputes/:id/evidence
 POST   /api/rentals/:id/reviews
 
 # Chat, notifikasi, laporan
-GET    /api/conversations               POST /api/conversations (item_id)
+GET    /api/conversations               POST /api/conversations {itemId}
 GET    /api/conversations/:id/messages?cursor=   POST /api/conversations/:id/messages
-POST   /api/conversations/:id/read
+POST   /api/conversations/:id/read      {lastMessageId}; cursor pesan berupa UUID
 POST   /api/users/:id/block             DELETE /api/users/:id/block
 GET    /api/notifications               POST /api/notifications/read
 POST   /api/reports
@@ -244,6 +253,7 @@ GET    /api/admin/items/pending         GET /api/admin/items/:id
 POST   /api/admin/items/:id/decision    (disetujui / ditolak + alasan; wajib version)
 GET    /api/admin/reports               POST /api/admin/reports/:id/action
 GET    /api/admin/payments              POST /api/admin/payments/:proofId/decision   (per bukti: terima + nominal / tolak + alasan)
+GET    /api/admin/payments/:proofId     (bukti privat dan snapshot tagihan, akses diaudit)
 GET    /api/admin/payout-tasks          POST /api/admin/payout-tasks/:id/claim
 POST   /api/admin/payout-tasks/:id/complete
 GET    /api/admin/disputes              GET /api/admin/disputes/:id
@@ -262,6 +272,8 @@ PUT    /api/admin/users/:id/role                                            (SA)
 POST   /api/internal/jobs/:name         (dipanggil pg_cron, diautentikasi secret header)
 POST   /api/telegram/webhook            (update dari Telegram; wajib header X-Telegram-Bot-Api-Secret-Token)
 ```
+
+Rute Sprint 3 dijalankan oleh `transaction-routes.ts`. `state` daftar rental menerima `aktif|selesai|dibatalkan`; aksi rental/keputusan pembayaran wajib `version`. Keputusan bukti memakai `decision: diterima|ditolak` disertai `verifiedAmount` atau `reason`. POST `/api/reports` pada Sprint 3 menerima `{messageId,reason}`; pengelolaan laporan umum mengikuti Sprint 5. Rute serah terima/pencairan/sengketa pada daftar target di atas belum diimplementasikan pada Sprint 3.
 
 ### Alur Telegram bot
 

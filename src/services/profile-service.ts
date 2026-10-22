@@ -18,6 +18,7 @@ import { getSettings } from "./settings-service";
 import { sendActionConfirmation } from "./telegram-api";
 import { mutation } from "@/src/db/mutation";
 import { campusFields } from "./campus-service";
+import { notifyAdmins } from "./notification-service";
 
 export function requireOnboarded(user: User) {
   assert(
@@ -163,6 +164,12 @@ export async function submitVerification(db: Database, user: User, raw: unknown,
       .values({ userId: user.id, ...input })
       .returning({ id: identityVerifications.id });
     await tx.update(users).set({ verificationStatus: "menunggu" }).where(eq(users.id, user.id));
+    await notifyAdmins(
+      tx,
+      "Identitas perlu ditinjau",
+      `${fresh.name} mengajukan verifikasi identitas.`,
+      "/admin/verifikasi",
+    );
     await tx.insert(notifications).values({
       userId: user.id,
       type: "verification_submitted",

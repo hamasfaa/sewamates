@@ -2,6 +2,7 @@ import { withSentryConfig } from "@sentry/nextjs/config";
 import type { NextConfig } from "next";
 
 const config: NextConfig = {
+  distDir: process.env.NEXT_BUILD_DIR || ".next",
   allowedDevOrigins: [new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").hostname],
   poweredByHeader: false,
   async headers() {

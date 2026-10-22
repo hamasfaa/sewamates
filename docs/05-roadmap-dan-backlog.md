@@ -71,6 +71,8 @@ ID fitur merujuk ke [02](02-prd-fitur-mvp.md); aturan ke [01](01-alur-dan-aturan
 - Job `expire-requests`, `expire-payments`, `deliver-notifications`.
 - Notifikasi Telegram (pesan + tombol "Buka di SewaMates") untuk kejadian Sprint 1–3; perintah `/transaksi` & `/bantuan`; notifikasi grup admin.
 
+Status implementasi, penyiapan migrasi `0005`, dan bukti pemeriksaan tersedia di [Sprint 3 — Transaksi I](sprints/03-transaksi-i.md). Gunakan [checklist pengujian manual](sprints/03-transaksi-i-e2e.md) sebelum menutup DoD lingkungan bersama. Sprint 4 belum dimulai.
+
 **Sprint 4 – Transaksi II**
 - Migrasi: `handover_records`, `handover_photos`, `reschedule_requests`, `no_show_reports`, `payout_tasks`, `cash_movements`, `strikes`, `disputes`, `dispute_evidence`.
 - F10 serah terima & pengembalian (kamera, kode/QR, "Saya sudah sampai"), denda telat, masa cek; panel "Lanjutkan di HP" (QR) untuk PC.

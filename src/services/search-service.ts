@@ -132,9 +132,8 @@ async function queryItems(db: Executor, query: Query) {
           : undefined,
         query.min !== undefined ? gte(items.pricePerDay, query.min) : undefined,
         query.max !== undefined ? lte(items.pricePerDay, query.max) : undefined,
-        // Owner blocks now; Sprint 3 adds approved rental holds to the same filter.
         period
-          ? sql`NOT EXISTS (SELECT 1 FROM availability_blocks b WHERE b.item_id = "items"."id" AND b.period && tstzrange(${period.start.toISOString()}::timestamptz, ${period.end.toISOString()}::timestamptz, '[)'))`
+          ? sql`NOT EXISTS (SELECT 1 FROM availability_blocks b WHERE b.item_id = "items"."id" AND b.period && tstzrange(${period.start.toISOString()}::timestamptz, ${period.end.toISOString()}::timestamptz, '[)')) AND NOT EXISTS (SELECT 1 FROM rentals r WHERE r.item_id="items"."id" AND r.status IN ('DISETUJUI','MENUNGGU_VERIFIKASI','DIBAYAR','BERJALAN') AND r.block_period && tstzrange(${period.start.toISOString()}::timestamptz,${period.end.toISOString()}::timestamptz,'[)'))`
           : undefined,
         query.popularOnly ? gt(items.completedCount, 0) : undefined,
         query.after ? order.after : undefined,

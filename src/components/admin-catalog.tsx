@@ -26,6 +26,7 @@ export function SettingsTabs() {
         { href: "/admin/pengaturan", label: "Aturan dasar" },
         { href: "/admin/pengaturan/kategori", label: "Kategori" },
         { href: "/admin/pengaturan/titik", label: "Titik serah terima" },
+        { href: "/admin/pengaturan/rekening", label: "Rekening platform" },
       ].map(({ href, label }) => (
         <Link
           key={href}

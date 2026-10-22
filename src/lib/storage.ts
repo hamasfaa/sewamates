@@ -1,7 +1,7 @@
 import "server-only";
 import { createClient } from "@supabase/supabase-js";
 import { and, eq, gt, gte, inArray, sql } from "drizzle-orm";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { uploadTickets, type User } from "@/src/db/schema";
 import type { Database, Executor } from "@/src/db";
 import { assert } from "./errors";
@@ -14,11 +14,19 @@ const buckets: Record<UploadPurpose, string> = {
   identity_selfie: "identity-private",
   avatar: "avatars-public",
   item_photo: "items-public",
+  payment_proof: "evidence-private",
+  chat_image: "evidence-private",
 };
 const MAX_BYTES = 5 * 1024 * 1024;
 // Public listing photos may only come from verified accounts (A-3.1).
 export function canUpload(user: User, purpose: UploadPurpose) {
-  assert(user.accountStatus === "aktif", "ACCOUNT_RESTRICTED", "Akun sedang dibatasi.", 403);
+  assert(
+    user.accountStatus === "aktif" ||
+      (user.accountStatus === "ditangguhkan" && ["payment_proof", "chat_image"].includes(purpose)),
+    "ACCOUNT_RESTRICTED",
+    "Akun sedang dibatasi.",
+    403,
+  );
   assert(
     purpose !== "item_photo" || user.verificationStatus === "terverifikasi",
     "VERIFICATION_REQUIRED",
@@ -55,9 +63,12 @@ export async function signUpload(db: Database, userId: string, input: z.infer<ty
       );
     // A listing needs up to 16 files (photo + thumbnail), so allow a couple of listings per hour.
     assert(count < 60, "RATE_LIMITED", "Batas unggah tercapai. Coba lagi dalam satu jam.", 429);
-    const extension = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" }[
-      input.contentType
-    ];
+    const extension = {
+      "image/jpeg": "jpg",
+      "image/png": "png",
+      "image/webp": "webp",
+      "application/pdf": "pdf",
+    }[input.contentType];
     const path = `${userId}/${input.purpose}/${randomUUID()}.${extension}`;
     const bucket = buckets[input.purpose];
     const { data, error } = await client
@@ -224,5 +235,55 @@ export function publicItemUrl(path: string | null) {
 export async function identityPreview(path: string) {
   const { data, error } = await storage().from("identity-private").createSignedUrl(path, 300);
   if (error || !data) throw new Error("Gagal membaca bukti identitas.");
+  return data.signedUrl;
+}
+
+export async function inspectEvidence(
+  userId: string,
+  path: string,
+  purpose: "payment_proof" | "chat_image",
+) {
+  assert(
+    path.startsWith(`${userId}/${purpose}/`) &&
+      /^[0-9a-f-]{36}\/(payment_proof|chat_image)\/[0-9a-f-]{36}\.(jpg|png|webp|pdf)$/.test(path),
+    "INVALID_UPLOAD",
+    "Unggahan ini bukan milikmu atau tujuannya tidak sesuai.",
+    422,
+  );
+  const { data, error } = await storage().from("evidence-private").download(path);
+  assert(
+    !error && data && data.size > 0 && data.size <= MAX_BYTES,
+    "UPLOAD_MISSING",
+    "File belum terunggah atau melebihi 5 MB.",
+    422,
+  );
+  const bytes = new Uint8Array(await data.arrayBuffer());
+  const pdf = Buffer.from(bytes.slice(0, 5)).toString() === "%PDF-";
+  assert(
+    isImage(bytes) || (purpose === "payment_proof" && pdf),
+    "INVALID_FILE",
+    purpose === "payment_proof"
+      ? "Pilih foto JPEG/PNG/WebP atau PDF yang valid."
+      : "Pilih foto JPEG, PNG, atau WebP yang valid.",
+    422,
+  );
+  assert(!path.endsWith(".pdf") || pdf, "INVALID_FILE", "File PDF tidak valid.", 422);
+  return createHash("sha256").update(bytes).digest("hex");
+}
+// Stable URLs prevent image downloads on every chat poll; callers authorize first.
+const previews = new Map<string, { url: string; until: number }>();
+export async function evidencePreview(path: string) {
+  const key = `${process.env.SUPABASE_URL}:${path}`,
+    cached = previews.get(key);
+  if (cached && cached.until > Date.now()) return cached.url;
+  const { data, error } = await storage().from("evidence-private").createSignedUrl(path, 300);
+  assert(
+    !error && data,
+    "PREVIEW_UNAVAILABLE",
+    "Bukti belum bisa ditampilkan. Coba muat ulang.",
+    503,
+  );
+  if (previews.size >= 500) previews.delete(previews.keys().next().value!);
+  previews.set(key, { url: data.signedUrl, until: Date.now() + 240000 });
   return data.signedUrl;
 }

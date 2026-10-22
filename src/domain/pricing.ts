@@ -27,3 +27,18 @@ export function netEstimate(pricePerDay: number, days: number, rateBp: number) {
   const rent = rentTotal(pricePerDay, days);
   return rent - commission(rent, rateBp);
 }
+
+export function paymentTotals(rent: number, deposit: number, uniqueCode: number, received = 0) {
+  const due = rent + deposit + uniqueCode;
+  return {
+    amountDue: due,
+    remaining: Math.max(0, due - received),
+    overpayment: Math.max(0, received - due),
+    refundableDeposit: deposit + uniqueCode + Math.max(0, received - due),
+  };
+}
+export function firstFreeCode(used: number[]) {
+  const reserved = new Set(used);
+  for (let code = 1; code <= 999; code++) if (!reserved.has(code)) return code;
+  return null;
+}

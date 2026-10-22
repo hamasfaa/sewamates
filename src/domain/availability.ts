@@ -47,3 +47,31 @@ export function blockedDays(periods: Period[], month: string) {
 export function periodDates(period: Period) {
   return { from: wibDateKey(period.start), to: wibDateKey(new Date(period.end.getTime() - 1)) };
 }
+
+export function rentalPeriod(start: Date, days: number, bufferHours: number) {
+  const due = new Date(start.getTime() + days * DAY);
+  return { due, period: { start, end: new Date(due.getTime() + bufferHours * 3600000) } };
+}
+export function withinPickupHours(at: Date, hours: import("./pickup-points").PickupHours) {
+  const local = new Date(at.getTime() + WIB_OFFSET);
+  const day = hours[(local.getUTCDay() + 6) % 7];
+  const clock = local.toISOString().slice(11, 16);
+  return Boolean(day && clock >= day.open && clock < day.close);
+}
+export function paymentReviewTarget(
+  at: Date,
+  rules: {
+    admin_open_hour: number;
+    admin_close_hour: number;
+    payment_sla_hours: number;
+    payment_next_day_hour: number;
+  },
+) {
+  const local = new Date(at.getTime() + WIB_OFFSET),
+    hour = local.getUTCHours();
+  if (hour >= rules.admin_open_hour && hour < rules.admin_close_hour)
+    return new Date(at.getTime() + rules.payment_sla_hours * 3600000);
+  const date = wibDateKey(at);
+  const next = hour >= rules.admin_close_hour ? addDays(date, 1) : date;
+  return new Date(wibDayStart(next).getTime() + rules.payment_next_day_hour * 3600000);
+}
