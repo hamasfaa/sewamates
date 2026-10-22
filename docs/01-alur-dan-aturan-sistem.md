@@ -97,6 +97,8 @@ Catatan:
   - Ganti akun Telegram: login dengan akun Telegram baru yang membagikan nomor HP yang sama → tautan dipindah, akun Telegram lama diberi tahu.
 - **Aksi sensitif** (ubah rekening pencairan, hapus akun) wajib dikonfirmasi lewat tombol di Telegram bot (berlaku 10 menit ⚙).
 - Jika pengguna memblokir bot, notifikasi Telegram berhenti dan aplikasi menampilkan banner untuk membuka bot dan menekan Start lagi.
+- Notifikasi kejadian penting dipicu segera setelah aksi berhasil disimpan: pengajuan baru ke pemilik; persetujuan/penolakan ke penyewa; hasil verifikasi identitas/listing ke pengaju; hasil pembayaran ke penyewa dan ke pemilik saat lunas. Nomor HP menghubungkan identitas akun dengan Telegram saat login; pengiriman memakai chat Telegram yang tertaut.
+- Tugas pemeriksaan identitas, moderasi listing, dan verifikasi pembayaran dikirim ke **grup Telegram admin**, satu pesan per tugas, serta disimpan in-app untuk semua admin aktif. Tugas admin tidak dikirim ke chat pribadi admin. Admin yang menjadi pemilik/penyewa tetap menerima kabar transaksi pribadinya sebagai peserta.
 - Pengguna yang belum terverifikasi hanya bisa melihat-lihat. Mengajukan sewa, membuat listing, dan memulai chat butuh status `terverifikasi`.
 - Verifikasi: foto KTM **atau** KTP + selfie memegang kartu tersebut. Nama di kartu harus sama dengan nama profil. Admin memutuskan `terverifikasi` / `ditolak` (alasan wajib). Pengguna yang ditolak boleh mengajukan ulang.
 - **Rekening pencairan wajib** diisi sebelum mengajukan sewa atau menerbitkan listing (dibutuhkan untuk refund dan pencairan).

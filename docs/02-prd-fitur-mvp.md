@@ -161,12 +161,14 @@ Semua aturan dan angka merujuk ke [01 – Alur & Aturan Sistem](01-alur-dan-atur
 
 ### F15 Notifikasi
 - Semua notifikasi tersimpan in-app (ikon lonceng + jumlah belum dibaca).
+- Telegram dipicu setelah aksi berhasil disimpan, tanpa menunggu cron menit berikutnya. Antrean permanen dan retry menjaga pesan saat Telegram bermasalah; cron tiap menit memproses sisa antrean. Latensi pengiriman dipengaruhi koneksi, batas Telegram, dan panjang antrean.
+- Lonceng dan daftar notifikasi diperbarui setiap 2 detik saat tab aktif, serta saat pengguna kembali ke tab. Ini memakai polling terotorisasi; pengguna tidak perlu memuat ulang halaman.
 - Kanal per kejadian:
 
 | Kejadian | Penerima | In-app | Telegram | Push |
 |----------|----------|:-:|:-:|:-:|
 | Verifikasi identitas diterima/ditolak | Pengguna | ✓ | ✓ | ✓ |
-| Listing disetujui/ditolak | Pemilik | ✓ | – | ✓ |
+| Listing disetujui/ditolak | Pemilik | ✓ | ✓ | ✓ |
 | Pengajuan sewa baru | Pemilik | ✓ | ✓ | ✓ |
 | Pengajuan disetujui/ditolak/kedaluwarsa | Penyewa | ✓ | ✓ | ✓ |
 | Batas bayar tinggal 1 jam | Penyewa | ✓ | ✓ | ✓ |
@@ -183,6 +185,8 @@ Semua aturan dan angka merujuk ke [01 – Alur & Aturan Sistem](01-alur-dan-atur
 | Pengajuan otomatis ditolak/dibatalkan karena penangguhan akun lawan | Pihak lain | ✓ | ✓ | ✓ |
 | Laporan yang dikirim sudah ditangani | Pelapor | ✓ | – | – |
 | Tugas admin baru / lewat target | Semua admin | ✓ | ✓ (grup admin) | – |
+
+Nomor HP dari login memetakan akun ke chat Telegram yang tertaut. Notifikasi tugas admin dikirim hanya ke grup admin; notifikasi pribadi tetap mengikuti peran pemilik/penyewa pada transaksi tersebut. Pengingat, pencairan, sengketa, dan tugas lewat target mengikuti sprint implementasinya.
 
 - Pengguna dapat mematikan push untuk chat; notifikasi transaksi tidak bisa dimatikan.
 

@@ -23,9 +23,9 @@ Alasan: satu basis kode, rilis tanpa proses toko aplikasi, tautan mudah dibagika
 | ORM / migrasi | Drizzle ORM + migrasi SQL | Constraint khusus (exclusion, partial unique) ditulis manual di SQL |
 | Auth | **Login via Telegram bot** (A-3.1) + sesi milik sendiri (tabel `sessions`, cookie httpOnly) | Supabase Auth tidak dipakai. Untuk Realtime, server menerbitkan JWT berumur 1 jam (`sub` = user id, `role` = authenticated) yang ditandatangani JWT secret Supabase agar RLS berlaku; jika tidak memungkinkan, chat memakai polling |
 | Storage | Supabase Storage | Bucket publik dan privat, lihat 6.2 |
-| Real-time | Sprint 3 menggunakan polling terotorisasi | Ruang chat 1,5 detik, daftar 5 detik; spike dan keputusan Realtime ada di ADR 0004 |
+| Real-time | Sprint 3 menggunakan polling terotorisasi | Ruang chat 1,5 detik, daftar transaksi/chat 5 detik, lonceng/daftar notifikasi 2 detik; spike dan keputusan Realtime ada di ADR 0004 |
 | Job terjadwal | `pg_cron` + `pg_net` memanggil endpoint internal tiap menit | Cron Vercel paket gratis hanya sekali per hari, jadi tidak dipakai |
-| Telegram bot | **Telegram Bot API** (bot dibuat lewat BotFather), library grammY | Gratis, tanpa persetujuan templat. Mode **webhook** ke `/api/telegram/webhook` dengan `secret_token`. Batas kirim ±30 pesan/detik total dan ±1 pesan/detik per chat, ditangani antrean `notification_deliveries` |
+| Telegram bot | **Telegram Bot API** (bot dibuat lewat BotFather), library grammY | Mode **webhook** ke `/api/telegram/webhook` dengan `secret_token`. Outbox diproses lewat `after()` setelah respons mutasi berhasil; cron tiap menit menjadi cadangan. Jeda 35 ms global, 1 detik per chat pribadi, 3 detik per grup; 429 mengikuti `retry_after` |
 | Web push | Standar Web Push (VAPID), library `web-push` | – |
 | Hosting | Vercel (app) + Supabase (DB, storage, realtime, pg_cron) | Region Singapura untuk keduanya |
 | Monitoring | Sentry (FE & BE), PostHog (event produk) | – |

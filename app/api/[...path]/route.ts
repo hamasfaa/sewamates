@@ -1,8 +1,10 @@
 import { dispatch } from "@/src/lib/api-router";
+import { withNotificationDelivery } from "@/src/lib/notification-dispatch";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 30;
 export const GET = dispatch;
-export const POST = dispatch;
-export const PATCH = dispatch;
-export const PUT = dispatch;
-export const DELETE = dispatch;
+export const POST = withNotificationDelivery(dispatch);
+export const PATCH = withNotificationDelivery(dispatch);
+export const PUT = withNotificationDelivery(dispatch);
+export const DELETE = withNotificationDelivery(dispatch);

@@ -51,6 +51,10 @@ test("akun baru menyewa barang Rp1 juta, pembayaran bertahap, verifikasi, dan ch
     await adminPage.getByRole("button", { name: "Simpan rekening", exact: true }).click();
     await expect(adminPage.getByText("0123456789", { exact: true })).toBeVisible();
     await fits(adminPage);
+    await ownerPage.goto("/notifikasi");
+    await expect(
+      ownerPage.getByRole("heading", { name: "Belum ada kabar baru", exact: true }),
+    ).toBeVisible();
     await page.goto(`/barang/${f.itemId}/sewa`);
     await expect(page.getByRole("heading", { name: "Ajukan sewa", exact: true })).toBeVisible();
     await page.getByLabel("Mulai sewa (WIB)").fill(f.start);
@@ -65,7 +69,15 @@ test("akun baru menyewa barang Rp1 juta, pembayaran bertahap, verifikasi, dan ch
     await session(stranger, f.stranger.token);
     expect((await stranger.request.get(`/api/rentals/${id}`)).status()).toBe(404);
     await stranger.close();
-    await ownerPage.goto(`/transaksi/${id}`);
+    // A different browser creates the request; the open notification page updates without navigation.
+    const notice = ownerPage.getByRole("heading", { name: "Ada pengajuan sewa baru" });
+    await expect(notice).toBeVisible();
+    await expect(
+      ownerPage.getByRole("link", { name: "Notifikasi, 1 belum dibaca", exact: true }),
+    ).toBeVisible();
+    await fits(ownerPage);
+    await ownerPage.getByRole("button").filter({ has: notice }).click();
+    await expect(ownerPage).toHaveURL(`/transaksi/${id}`);
     await ownerPage.getByRole("button", { name: "Terima pengajuan", exact: true }).click();
     await expect(ownerPage.getByText("Batas unggah bukti:")).toBeVisible();
     await expect(

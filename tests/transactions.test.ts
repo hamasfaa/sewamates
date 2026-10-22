@@ -37,6 +37,7 @@ import { changeSettings } from "@/src/services/settings-service";
 import { expireRentals } from "@/src/jobs/expire-rentals";
 import { deliverNotifications } from "@/src/jobs/deliver-notifications";
 import { DEFAULT_SETTINGS } from "@/src/domain/settings";
+import { notify, notifyAdmins } from "@/src/services/notification-service";
 
 const mocks = vi.hoisted(() => ({ download: vi.fn(), sendMessage: vi.fn() }));
 vi.mock("@supabase/supabase-js", () => ({
@@ -679,6 +680,123 @@ describe("chat, isolasi, dan notifikasi", () => {
       .where(eq(s.rentals.id, rental.id));
     expect((await expireRentals(db, "payments")).expired).toBe(0);
     expect((await getRental(rental.id)).status).toBe("MENUNGGU_VERIFIKASI");
+  });
+  it.each(["approve", "reject", "cancel"] as const)(
+    "pengajuan dan aksi %s terkirim ke peserta yang tepat tanpa duplikat retry",
+    async (action) => {
+      const f = await setup(),
+        key = crypto.randomUUID(),
+        request = await createRental(db, f.renter, f.input, key);
+      await createRental(db, f.renter, f.input, key);
+      const actor = action === "cancel" ? f.renter : f.owner;
+      await actOnRental(db, actor, request.id, action, { version: 1, reason: "Pengujian" });
+      expect((await deliverNotifications(db)).sent).toBe(2);
+      expect(mocks.sendMessage.mock.calls[0][0]).toBe(f.owner.telegramChatId);
+      expect(mocks.sendMessage.mock.calls[0][1]).toContain("Ada pengajuan sewa baru");
+      expect(mocks.sendMessage.mock.calls[1][0]).toBe(
+        action === "cancel" ? f.owner.telegramChatId : f.renter.telegramChatId,
+      );
+      expect((await deliverNotifications(db)).sent).toBe(0);
+      expect(mocks.sendMessage).toHaveBeenCalledTimes(2);
+    },
+  );
+  it("tugas admin membuat satu pesan grup dan in-app untuk tiap admin aktif tanpa DM admin", async () => {
+    const f = await setup();
+    await user(db, { role: "admin" });
+    await user(db, { role: "admin", accountStatus: "ditangguhkan" });
+    await db
+      .update(s.users)
+      .set({ telegramBlockedAt: new Date() })
+      .where(eq(s.users.id, f.admin.id));
+    process.env.TELEGRAM_ADMIN_CHAT_ID = "-1001234567890";
+    await db.transaction((tx) =>
+      notifyAdmins(tx, "Bukti baru", "Cocokkan mutasi", "/admin/pembayaran"),
+    );
+    expect(await db.select().from(s.notifications)).toHaveLength(2);
+    expect(await db.select().from(s.notificationDeliveries)).toHaveLength(1);
+    expect((await deliverNotifications(db)).sent).toBe(1);
+    expect(mocks.sendMessage.mock.calls[0][0]).toBe(-1001234567890);
+    expect(mocks.sendMessage).toHaveBeenCalledTimes(1);
+    const [limit] = await db
+      .select()
+      .from(s.deliveryThrottles)
+      .where(eq(s.deliveryThrottles.key, "chat:-1001234567890"));
+    expect(limit.nextAt.getTime()).toBeGreaterThan(Date.now() + 2000);
+  });
+  it.each(["", "123456", "bukan-id", "-0", "-9007199254740992"])(
+    "tugas admin tetap in-app jika konfigurasi grup tidak valid: %s",
+    async (group) => {
+      await setup();
+      process.env.TELEGRAM_ADMIN_CHAT_ID = group;
+      await notifyAdmins(db, "Tugas baru", "Periksa antrean", "/admin");
+      expect(await db.select().from(s.notifications)).toHaveLength(1);
+      expect(await db.select().from(s.notificationDeliveries)).toHaveLength(0);
+      expect((await deliverNotifications(db)).sent).toBe(0);
+    },
+  );
+  it("keputusan identitas dan listing masuk Telegram, pesan chat tetap in-app", async () => {
+    const f = await setup();
+    for (const type of ["verification_decided", "listing_decided", "chat_message"])
+      await notify(db, f.owner.id, type, "Pembaruan", "Hasil pemeriksaan", "/profil");
+    expect(await db.select().from(s.notifications)).toHaveLength(3);
+    expect(await db.select().from(s.notificationDeliveries)).toHaveLength(2);
+    expect((await deliverNotifications(db)).sent).toBe(2);
+  });
+  it("antrean grup yang menunggu tidak menahan pesan pribadi dan tetap bisa diproses worker berikutnya", async () => {
+    const f = await setup();
+    process.env.TELEGRAM_ADMIN_CHAT_ID = "-1001234567890";
+    await notifyAdmins(db, "Tugas", "Periksa antrean", "/admin");
+    await notify(db, f.owner.id, "rental_requested", "Pengajuan", "Pengajuan baru", "/transaksi");
+    await db
+      .insert(s.deliveryThrottles)
+      .values({ key: "chat:-1001234567890", nextAt: new Date(Date.now() + 5000) });
+    expect((await deliverNotifications(db)).sent).toBe(1);
+    expect(mocks.sendMessage.mock.calls[0][0]).toBe(f.owner.telegramChatId);
+    const [pending] = await db
+      .select()
+      .from(s.notificationDeliveries)
+      .where(eq(s.notificationDeliveries.status, "antre"));
+    expect(pending.attempts).toBe(0);
+    expect(pending.claimedUntil).toBeNull();
+    await db.execute(sql`TRUNCATE delivery_throttles`);
+    await db
+      .update(s.notificationDeliveries)
+      .set({ nextAttemptAt: new Date(Date.now() - 1) })
+      .where(eq(s.notificationDeliveries.id, pending.id));
+    expect((await deliverNotifications(db)).sent).toBe(1);
+    expect(mocks.sendMessage.mock.calls[1][0]).toBe(-1001234567890);
+  });
+  it("batas waktu worker meninggalkan pesan yang masih menunggu throttle untuk pemanggilan berikutnya", async () => {
+    const f = await setup();
+    await notify(db, f.owner.id, "rental_requested", "Pengajuan", "Pengajuan baru", "/transaksi");
+    await db.insert(s.deliveryThrottles).values({
+      key: `chat:${f.owner.telegramChatId}`,
+      nextAt: new Date(Date.now() + 2000),
+    });
+    expect((await deliverNotifications(db, { maxDurationMs: 50 })).sent).toBe(0);
+    const [pending] = await db.select().from(s.notificationDeliveries);
+    expect(pending.status).toBe("antre");
+    expect(pending.attempts).toBe(0);
+    expect(pending.claimedUntil).toBeNull();
+  });
+  it("rollback aksi membatalkan notifikasi dan outbox sekaligus", async () => {
+    const f = await setup();
+    await expect(
+      db.transaction(async (tx) => {
+        await notify(tx, f.owner.id, "rental_requested", "Pengajuan", "Uji rollback", "/transaksi");
+        throw new Error("rollback");
+      }),
+    ).rejects.toThrow("rollback");
+    expect(await db.select().from(s.notifications)).toHaveLength(0);
+    expect(await db.select().from(s.notificationDeliveries)).toHaveLength(0);
+    expect((await deliverNotifications(db)).sent).toBe(0);
+  });
+  it("worker segera dan cron yang bersamaan tidak mengirim delivery yang sama dua kali", async () => {
+    const f = await setup();
+    await createRental(db, f.renter, f.input);
+    const results = await Promise.all([deliverNotifications(db), deliverNotifications(db)]);
+    expect(results.reduce((total, result) => total + result.sent, 0)).toBe(1);
+    expect(mocks.sendMessage).toHaveBeenCalledTimes(1);
   });
   it("outbox mengirim satu kali, 429 dijadwalkan ulang, 403 menandai bot diblokir", async () => {
     const f = await setup();

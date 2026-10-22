@@ -5,7 +5,8 @@ Gunakan lingkungan dev/staging. Prasyarat dan migrasi ada di [status Sprint 3](0
 | Area | Langkah | Hasil yang diharapkan |
 | --- | --- | --- |
 | Rekening platform | Super admin tambah bank dan GoPay/OVO; ubah, nonaktifkan, hapus rekening belum dipakai | Nomor berawalan 0 tetap utuh; rekening aktif muncul di halaman bayar; admin biasa ditolak |
-| Kelayakan | Coba akun belum terverifikasi, belum konfirmasi rekening, menyewa barang sendiri, dan akun baru untuk barang >Rp500.000 | Pengajuan ditolak dengan alasan yang jelas |
+| Kelayakan | Coba akun belum terverifikasi, belum konfirmasi rekening/e-wallet, dan menyewa barang sendiri | Pengajuan ditolak dengan alasan yang jelas |
+| Akun baru | Gunakan penyewa terverifikasi dengan rekening/e-wallet terkonfirmasi dan 0 transaksi selesai; ajukan barang Rp1 juta atau Rp10 juta lalu setujui sebagai pemilik | Form pengajuan tersedia; pengajuan dan persetujuan berhasil untuk jadwal valid tanpa batas nilai barang berdasarkan riwayat transaksi |
 | Jadwal | Pilih mulai <12 jam, >60 hari, durasi di luar batas listing, titik tutup, titik lain, tanggal diblokir | Pengajuan ditolak; jadwal valid menampilkan biaya dan jatuh tempo WIB yang benar |
 | Pengajuan | Penyewa isi waktu, durasi, titik, pesan; buka transaksi dari kedua akun | Snapshot biaya dan profil peserta tampil; kode transaksi dan hitung mundur tanggapan sama; pesan sistem muncul di chat |
 | Penolakan | Pemilik menolak pengajuan dan memberi catatan | Status ditolak, timeline dan notifikasi penyewa masuk, tidak ada hold |
@@ -26,7 +27,10 @@ Gunakan lingkungan dev/staging. Prasyarat dan migrasi ada di [status Sprint 3](0
 | Laporan/blokir | Laporkan pesan; blokir dan coba pesan/pengajuan dari lawan, lalu buka blokir | Laporan tersimpan; blokir berlaku dua arah; hanya pemblokir dapat mencabut blokir miliknya |
 | Privasi | Coba URL/API chat sebagai pengguna ketiga dan sebagai admin tanpa laporan | Ditolak. Admin dapat membaca lewat endpoint admin setelah ada laporan; akses tercatat |
 | Rate limit | Kirim >30 pesan dalam satu menit | Pesan berikutnya ditolak sementara, pesan sebelumnya tetap ada |
-| Telegram | Uji pengajuan baru, disetujui/ditolak/kedaluwarsa, hasil pembayaran, keputusan identitas, tugas admin | Pesan dan tombol menuju lingkungan yang benar; chat/keputusan listing tidak mengirim Telegram; `/transaksi` menampilkan transaksi aktif |
+| Telegram pribadi | Uji pengajuan baru, disetujui/ditolak/kedaluwarsa, hasil pembayaran, keputusan identitas/listing | Pemilik/penyewa/pengaju menerima ringkasan dan tombol yang menuju halaman terkait melalui akun Telegram yang tertaut; chat biasa tidak mengirim Telegram; `/transaksi` menampilkan transaksi aktif |
+| Telegram admin | Gunakan dua admin aktif; ajukan identitas/listing/bukti bayar | Satu pesan per tugas masuk grup admin; semua admin menerima in-app; tidak ada DM tugas admin. ID grup kosong/tidak valid tidak mengirim pesan pribadi |
+| Waktu notifikasi | Buka halaman notifikasi pada akun penerima; lakukan aksi dari browser lain, lalu tutup browser pengirim | Pengiriman Telegram dipicu setelah aksi tersimpan tanpa menunggu pergantian menit; notifikasi dan lonceng penerima diperbarui dalam sekitar 2 detik ditambah latensi jaringan |
+| Cadangan pengiriman | Simulasikan kegagalan pengiriman pada dev, lalu pulihkan dan jalankan cron | Aksi transaksi tetap berhasil; outbox belum terkirim diproses ulang dengan backoff/lease; 429 mengikuti `retry_after` |
 | Gangguan bot | Blokir bot, jalankan worker, buka bot/Start lagi | Penanda Telegram mati tampil; in-app tetap ada; 403 berhenti retry, 429 mengikuti `retry_after` |
 | Responsif | Coba 360/390, 768 dan 1440 px, termasuk nama/catatan panjang | Tidak perlu zoom out; kolom dan tombol dapat diakses, tidak ada overflow horizontal |
 

@@ -1,8 +1,8 @@
 # Sprint 3 — Transaksi I
 
-Tanggal pengerjaan: 21 Oktober 2026. Dimulai setelah pemilik aplikasi menyatakan pengujian Sprint 2 aman.
+Tanggal pengerjaan: 21 Oktober 2026; pembaruan notifikasi: 22 Oktober 2026. Dimulai setelah pemilik aplikasi menyatakan pengujian Sprint 2 aman.
 
-**Status: implementasi lokal tersedia; lint, TypeScript, build production, 129 tes PostgreSQL dan 32 tes browser lulus. Integrasi hosted, Telegram nyata, cron Supabase, dan perangkat fisik tetap memerlukan verifikasi lingkungan.** Keputusan ada di [ADR 0004](../decisions/0004-transaksi-sprint-3.md).
+**Status: implementasi lokal tersedia; lint, TypeScript, build production, 155 tes PostgreSQL dan 4 skenario browser transaksi lulus pada pembaruan notifikasi. Integrasi hosted, Telegram nyata, cron Supabase, dan perangkat fisik tetap memerlukan verifikasi lingkungan.** Keputusan ada di [ADR 0004](../decisions/0004-transaksi-sprint-3.md).
 
 ## Implementasi
 
@@ -15,7 +15,7 @@ Tanggal pengerjaan: 21 Oktober 2026. Dimulai setelah pemilik aplikasi menyatakan
 | F27 | Super admin mengelola rekening bank/e-wallet platform di `/admin/pengaturan/rekening`; rekening yang sudah dipakai dapat dinonaktifkan |
 | F9 | Chat per barang/pasangan, gambar privat, pesan sistem, filter nomor/tautan, read receipt, unread count, cursor, laporan dan blokir; polling 1,5 detik |
 | Job | `expire-requests`, `expire-payments`, `deliver-notifications`, memakai secret internal dan transaksi/lease |
-| Telegram | Outbox notifikasi kritis Sprint 1–3, grup tugas admin, retry/429/403, `/transaksi` dan `/bantuan` |
+| Telegram | Outbox notifikasi kritis Sprint 1–3, dipicu setelah respons mutasi berhasil; keputusan listing melalui migrasi `0006`, grup tugas admin, retry/429/403, `/transaksi` dan `/bantuan` |
 | Fondasi refund | Pembayaran parsial pada pembatalan/kedaluwarsa dan verifikasi terlambat membuat kewajiban refund permanen; pelaksanaan transfer mengikuti Sprint 4 |
 
 Halaman pengguna tersedia di `/barang/[id]/sewa`, `/transaksi`, `/transaksi/[id]`, `/chat`, `/chat/[id]`. Verifikasi pembayaran tersedia bagi admin di `/admin/pembayaran`. Pengguna/admin lain tidak memperoleh akses chat peserta hanya karena mempunyai role admin.
@@ -24,10 +24,10 @@ Akun baru boleh menyewa barang dengan nilai berapa pun di katalog, termasuk deng
 
 ## Penyiapan dev/staging
 
-1. Pastikan target `.env.local` memang lingkungan yang akan diperbarui, lalu jalankan `npm run db:migrate` untuk menerapkan `0005`. Untuk Supabase CLI lokal gunakan alur migrasi CLI seperti setup sebelumnya. Migrasi membuat/menyesuaikan bucket `evidence-private` privat, 5 MB, JPEG/PNG/WebP/PDF bila schema Storage tersedia. Tidak ada migrasi hosted yang dijalankan otomatis selama implementasi ini.
+1. Pastikan target `.env.local` memang lingkungan yang akan diperbarui, lalu jalankan `npm run db:migrate` untuk menerapkan `0005` dan `0006`. Untuk Supabase CLI lokal gunakan alur migrasi CLI seperti setup sebelumnya. Migrasi `0005` membuat/menyesuaikan bucket `evidence-private` privat, 5 MB, JPEG/PNG/WebP/PDF bila schema Storage tersedia. Migrasi `0006` menambahkan keputusan listing ke outbox Telegram untuk kejadian berikutnya. Tidak ada migrasi hosted yang dijalankan otomatis selama implementasi ini.
 2. Jalankan `npm run db:seed` bila perlu melengkapi pengaturan. Super admin menambahkan rekening operasional bank atau e-wallet lewat **Admin → Pengaturan → Rekening platform**. Gunakan data uji pada lingkungan dev. Persetujuan pengajuan ditolak jika belum ada rekening platform aktif.
 3. Pastikan titik serah terima aktif dan jam WIB benar. Siapkan dua akun pengguna berbeda yang sudah terverifikasi serta rekening/e-wallet terkonfirmasi, dan satu admin yang bukan peserta transaksi untuk memeriksa bukti.
-4. Isi `TELEGRAM_ADMIN_CHAT_ID` dengan ID grup admin dan masukkan bot ke grup. Tetapkan URL HTTPS dan bot sesuai lingkungan, lalu `npm run telegram:webhook` untuk memperbarui webhook dan menu `/transaksi`. Perintah ini mengganti tujuan webhook bot; gunakan bot terpisah dari production.
+4. Isi `TELEGRAM_ADMIN_CHAT_ID` dengan ID grup admin bernilai negatif (misalnya `-1001234567890`) dan masukkan bot ke grup. ID chat pribadi tidak dipakai untuk tugas admin. Tetapkan URL HTTPS dan bot sesuai lingkungan, lalu `npm run telegram:webhook` untuk memperbarui webhook dan menu `/transaksi`. Perintah ini mengganti tujuan webhook bot; gunakan bot terpisah dari production.
 5. Pada Supabase aktifkan `pg_cron`, `pg_net`, Vault (nama ekstensi SQL: `supabase_vault`; schema: `vault`). Pemeriksaan dan penanganan error `vault.control` ada di [setup job](../setup-sprint-1.md#job-terjadwal). Buat secret Vault `sewamates_app_url` dan `sewamates_job_secret` sesuai `INTERNAL_JOB_SECRET`, lalu jalankan [supabase/jobs.sql](../../supabase/jobs.sql). File tersebut menjadwalkan empat job setiap menit, termasuk job login Sprint 1, dengan nama tetap agar dapat dipasang ulang.
 6. Deploy kode setelah migrasi siap. Uji [checklist manual](03-transaksi-i-e2e.md), lalu periksa Sentry, hasil HTTP job, outbox gagal, dan audit log.
 
@@ -57,6 +57,12 @@ npm run test:e2e:transactions
 Port 3100 dan 3101 harus bebas. Konfigurasi ini terpisah dari `npm run test:e2e` untuk regresi Sprint 1–2. CI menjalankan keduanya. Akun/sesi fixture hanya dibuat pada database lokal yang sudah lolos guard; tidak ada endpoint bypass login dalam aplikasi. Hapus environment sementara pada shell setelah selesai atau gunakan terminal pengujian tersendiri.
 
 ## Batas verifikasi dan sprint berikutnya
+
+Pemeriksaan pembaruan notifikasi (22 Oktober 2026):
+
+- Lint, TypeScript, dan build production lulus. Seluruh **155 tes PostgreSQL lulus**, termasuk pengiriman setelah respons, penerima pengajuan/persetujuan/penolakan/pembatalan, satu pesan grup per tugas admin, ID grup tidak valid, keputusan listing, rollback, retry, batas waktu, dan dua worker bersamaan.
+- **4 skenario E2E transaksi lulus** di Chromium/WebKit pada 360/390/768/1440 px. Halaman notifikasi pemilik yang sudah terbuka menerima pengajuan dari browser penyewa tanpa refresh; angka lonceng bertambah dan notifikasi membuka transaksi yang sesuai. Alur pembayaran, verifikasi, dan chat tetap lulus.
+- Telegram dimock pada tes service/worker dan dinonaktifkan pada server browser E2E. Tes ini tidak mengirim pesan Telegram nyata atau menerapkan migrasi hosted. Jalankan migrasi `0006`, deploy, lalu uji pesan pribadi dan grup pada lingkungan yang dituju menggunakan checklist manual.
 
 Hasil lokal awal (21 Oktober 2026):
 
