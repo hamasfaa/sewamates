@@ -1,8 +1,8 @@
 import "server-only";
 import { Api, InlineKeyboard } from "grammy";
 import { required } from "@/src/lib/env";
-export function telegramApi() {
-  return new Api(required("TELEGRAM_BOT_TOKEN"), { timeoutSeconds: 8 });
+export function telegramApi(timeoutSeconds = 8) {
+  return new Api(required("TELEGRAM_BOT_TOKEN"), { timeoutSeconds });
 }
 export async function sendActionConfirmation(
   chatId: number,

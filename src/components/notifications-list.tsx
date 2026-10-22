@@ -2,7 +2,8 @@
 import { useRouter } from "next/navigation";
 import { Bell, ArrowUpRight } from "lucide-react";
 import { useState } from "react";
-import { api, useApi } from "@/src/lib/client-api";
+import { api } from "@/src/lib/client-api";
+import { NOTIFICATION_POLL_MS, useLiveApi } from "@/src/lib/live-api";
 import { dateWib } from "@/src/lib/utils";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
@@ -15,14 +16,17 @@ type Notification = {
   createdAt: string;
 };
 export function NotificationsList() {
-  const query = useApi<{ notifications: Notification[]; unread: number }>("/api/notifications"),
+  const query = useLiveApi<{ notifications: Notification[]; unread: number }>(
+      "/api/notifications",
+      NOTIFICATION_POLL_MS,
+    ),
     router = useRouter(),
     [error, setError] = useState("");
   async function mark(ids: string[], link?: string) {
     try {
       if (ids.length)
         await api("/api/notifications/read", { method: "POST", body: JSON.stringify({ ids }) });
-      query.reload();
+      await query.refresh();
       if (link && /^\/(?!\/|\\)/.test(link)) router.push(link);
     } catch (e) {
       setError((e as Error).message);

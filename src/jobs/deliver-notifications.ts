@@ -9,13 +9,15 @@ import {
 } from "@/src/db/schema";
 import { telegramApi } from "@/src/services/telegram-api";
 import { appUrl } from "@/src/lib/env";
+import { setTimeout as delay } from "node:timers/promises";
 
-export async function deliverNotifications(db: Database) {
+export async function deliverNotifications(db: Database, options: { maxDurationMs?: number } = {}) {
   if (!process.env.TELEGRAM_BOT_TOKEN)
     return { attempted: 0, sent: 0, skipped: "TELEGRAM_NOT_CONFIGURED" };
   let attempted = 0,
     sent = 0;
-  for (let i = 0; i < 30; i++) {
+  const deadline = Date.now() + (options.maxDurationMs ?? 8000);
+  for (let i = 0; i < 30 && Date.now() < deadline; i++) {
     const claim = await db.transaction(async (tx) => {
       const now = new Date();
       const [delivery] = await tx
@@ -68,7 +70,7 @@ export async function deliverNotifications(db: Database) {
         .where(eq(deliveryThrottles.key, "global"));
       await tx
         .update(deliveryThrottles)
-        .set({ nextAt: new Date(now.getTime() + 1000) })
+        .set({ nextAt: new Date(now.getTime() + (chatId < 0 ? 3000 : 1000)) })
         .where(eq(deliveryThrottles.key, keys[1]));
       await tx
         .update(deliveries)
@@ -76,7 +78,25 @@ export async function deliverNotifications(db: Database) {
         .where(eq(deliveries.id, delivery.id));
       return { skipped: false as const, delivery, row, chatId };
     });
-    if (!claim) break;
+    if (!claim) {
+      // Wait outside the transaction for short rate-limit delays, not long retry backoffs.
+      const [pending] = await db
+        .select({ nextAttemptAt: deliveries.nextAttemptAt })
+        .from(deliveries)
+        .where(
+          and(
+            eq(deliveries.status, "antre"),
+            or(isNull(deliveries.claimedUntil), lte(deliveries.claimedUntil, new Date())),
+          ),
+        )
+        .orderBy(asc(deliveries.nextAttemptAt))
+        .limit(1);
+      if (!pending) break;
+      const wait = pending.nextAttemptAt.getTime() - Date.now() + 5;
+      if (wait <= 0 || wait > 3010 || Date.now() + wait >= deadline) break;
+      await delay(wait);
+      continue;
+    }
     if (claim.skipped) continue;
     attempted++;
     const { delivery, row, chatId } = claim;
@@ -87,7 +107,8 @@ export async function deliverNotifications(db: Database) {
           : "/notifikasi",
         appUrl(),
       ).toString();
-      await telegramApi().sendMessage(
+      const timeoutSeconds = Math.max(0.001, Math.min(8, (deadline - Date.now()) / 1000));
+      await telegramApi(timeoutSeconds).sendMessage(
         chatId,
         `${row.notification.title}\n\n${row.notification.body}`,
         { reply_markup: new InlineKeyboard().url("Buka di SewaMates", link) },

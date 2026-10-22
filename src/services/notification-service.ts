@@ -27,7 +27,7 @@ export async function notifyAdmins(tx: Executor, title: string, body: string, li
     first ??= row;
   }
   const group = process.env.TELEGRAM_ADMIN_CHAT_ID;
-  if (first && group && /^-?\d+$/.test(group))
+  if (first && group && /^-[1-9]\d*$/.test(group) && Number.isSafeInteger(Number(group)))
     await tx
       .insert(notificationDeliveries)
       .values({ notificationId: first.id, chatId: Number(group) });

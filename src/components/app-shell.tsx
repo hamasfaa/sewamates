@@ -13,7 +13,8 @@ import {
   ArrowUpRight,
   ShieldCheck,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
+import { NOTIFICATION_POLL_MS, useLiveApi } from "@/src/lib/live-api";
 import { cn } from "@/src/lib/utils";
 import { Button } from "./ui/button";
 const nav = [
@@ -41,28 +42,11 @@ export function AppShell({
   botUsername?: string;
 }) {
   const pathname = usePathname(),
-    [unread, setUnread] = useState(0);
-  useEffect(() => {
-    if (!user) return;
-    let mounted = true;
-    const refresh = async () => {
-      try {
-        const response = await fetch("/api/notifications");
-        if (response.ok) {
-          const data = await response.json();
-          if (mounted) setUnread(data.unread);
-        }
-      } catch {}
-    };
-    void refresh();
-    const timer = setInterval(() => {
-      if (!document.hidden) void refresh();
-    }, 15000);
-    return () => {
-      mounted = false;
-      clearInterval(timer);
-    };
-  }, [user]);
+    notifications = useLiveApi<{ unread: number }>(
+      user ? "/api/notifications" : null,
+      NOTIFICATION_POLL_MS,
+    ),
+    unread = notifications.data?.unread ?? 0;
   // "/" focuses the visible search box (03 §2.1), unless the user is already typing.
   useEffect(() => {
     const focusSearch = (event: KeyboardEvent) => {
