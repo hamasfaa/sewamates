@@ -58,7 +58,7 @@ Perilaku khusus PC:
 - **Unggah foto** (listing, verifikasi, bukti transfer, bukti sengketa): pemilih file + *drag & drop*; webcam opsional untuk selfie verifikasi.
 - **Hover**: kartu barang sedikit terangkat (bayangan), tombol berubah ke `primary-hover`; semua aksi tetap bisa diakses keyboard (Tab, Enter, Esc menutup modal).
 - **Pintasan**: `/` memfokuskan kotak pencarian; `Enter` mengirim chat, `Shift+Enter` baris baru.
-- PWA juga bisa dipasang di PC (Chrome/Edge), dan web push di desktop bekerja tanpa perlu dipasang.
+- PWA juga bisa dipasang di PC (Chrome/Edge); penyempurnaan pemasangan mengikuti Sprint 6.
 
 ## 3. Layar Pengguna
 
@@ -254,4 +254,4 @@ Konfigurasi Tailwind (`@theme` / `theme.extend.colors`) merujuk ke variabel di a
 - Gambar WebP, lazy load, ukuran thumbnail terpisah; uji dengan throttling "Fast 4G" di Chrome DevTools.
 
 ## 10. Notifikasi
-Daftar kejadian dan kanal ada di [02](02-prd-fitur-mvp.md) fitur F15. Di UI: lonceng dengan jumlah belum dibaca; tap notifikasi membuka halaman terkait; pengaturan untuk mematikan push chat.
+Daftar kejadian dan kanal ada di [02](02-prd-fitur-mvp.md) fitur F15. Di UI: lonceng dengan jumlah belum dibaca; tap notifikasi membuka halaman terkait.

@@ -7,7 +7,7 @@ Aturan bisnis yang diimplementasikan di sini didefinisikan di [01](01-alur-dan-a
 **MVP berupa web responsif (mobile-first) yang bisa dipasang sebagai PWA di HP maupun PC**, ditambah panel admin di aplikasi yang sama (`/admin`, desktop-first). Satu basis kode melayani HP, tablet, dan desktop; tata letak per ukuran layar ada di [03](03-panduan-ux-ui.md) bagian 2.1.
 
 Alasan: satu basis kode, rilis tanpa proses toko aplikasi, tautan mudah dibagikan. Batasan yang diterima:
-- Web push di iOS hanya berjalan bila PWA dipasang ke Home Screen (iOS 16.4+). Karena itu **Telegram bot adalah kanal utama** untuk notifikasi kritis.
+- **Telegram bot adalah kanal utama** untuk notifikasi kritis; seluruh notifikasi juga tersimpan in-app.
 - Bot Telegram tidak bisa mengirim pesan duluan; pengguna harus menekan Start. Ini dijamin karena login wajib lewat bot (A-3.1).
 - Kamera dalam browser (`getUserMedia`) tidak bisa sepenuhnya mencegah unggahan dari galeri; foto dari fallback galeri ditandai untuk admin.
 - Bila kelak butuh native: bungkus dengan Capacitor (P2).
@@ -26,7 +26,6 @@ Alasan: satu basis kode, rilis tanpa proses toko aplikasi, tautan mudah dibagika
 | Real-time | Sprint 3 menggunakan polling terotorisasi | Ruang chat 1,5 detik, daftar transaksi/chat 5 detik, lonceng/daftar notifikasi 2 detik; spike dan keputusan Realtime ada di ADR 0004 |
 | Job terjadwal | `pg_cron` + `pg_net` memanggil endpoint internal tiap menit | Cron Vercel paket gratis hanya sekali per hari, jadi tidak dipakai |
 | Telegram bot | **Telegram Bot API** (bot dibuat lewat BotFather), library grammY | Update masuk ke `/api/telegram/webhook` dengan `secret_token`. Insert outbox memicu `pg_net` setelah commit ke `/api/internal/notifications/deliver`, lalu `after()` mengirim satu delivery beserta retry terbatas. Tanpa cron Telegram. Jeda 35 ms global, 1 detik per chat pribadi, 3 detik per grup; 429 mengikuti `retry_after` |
-| Web push | Standar Web Push (VAPID), library `web-push` | – |
 | Hosting | Vercel (app) + Supabase (DB, storage, realtime, pg_cron) | Region Singapura untuk keduanya |
 | Monitoring | Sentry (FE & BE), PostHog (event produk) | – |
 | Tes | Vitest (unit/integrasi), Playwright (e2e) | DB tes dari Supabase CLI lokal |
@@ -189,7 +188,7 @@ reports(id, reporter_id, target_type[user|item|message|review], target_id, reaso
 ### 4.6 Sistem
 ```
 notifications(id, user_id, type, title, body, link, read_at)
-notification_deliveries(id, notification_id, channel[telegram|push], status[antre|terkirim|gagal], attempts, last_error, next_attempt_at,
+notification_deliveries(id, notification_id, channel[telegram], status[antre|terkirim|gagal], attempts, last_error, next_attempt_at,
                         claimed_until, dispatch_request_id, telegram_message_id)
 login_requests(id, token_hash UNIQUE, browser_nonce_hash, match_code, telegram_user_id NULL, user_id NULL,
                status[menunggu|disetujui|dipakai|kedaluwarsa], expires_at)
@@ -197,7 +196,6 @@ action_confirmations(id, user_id, action[ubah_rekening|hapus_akun], payload json
                      status[menunggu|dikonfirmasi|ditolak|kedaluwarsa], expires_at)
 sessions(id, user_id, token_hash UNIQUE, user_agent, ip, last_seen_at, expires_at, revoked_at)
 telegram_updates(update_id PRIMARY KEY, received_at)   -- dedup webhook (Telegram bisa mengirim ulang)
-push_subscriptions(id, user_id, endpoint UNIQUE, p256dh, auth)
 settings(key PRIMARY KEY, value jsonb, updated_by)
 admin_audit_logs(id, admin_id, action, target_type, target_id, meta jsonb)
 sent_alerts(kind, target_id, PRIMARY KEY(kind, target_id))   -- pengingat/peringatan SLA terkirim sekali
@@ -217,7 +215,6 @@ GET    /api/me                          PATCH /api/me
 POST   /api/me/verification             (unggah KTM/KTP + selfie)
 PUT    /api/me/payout-account           (membuat action_confirmation; berlaku setelah dikonfirmasi di bot)
 DELETE /api/me                          (hapus akun, fitur F17 di dokumen 02)
-POST   /api/me/push-subscriptions
 POST   /api/uploads/sign                (signed upload URL per bucket & tujuan)
 
 # Listing & pencarian
@@ -285,9 +282,9 @@ POST   /api/internal/notifications/deliver (webhook pg_net, Bearer INTERNAL_JOB_
 POST   /api/telegram/webhook            (update dari Telegram; wajib header X-Telegram-Bot-Api-Secret-Token)
 ```
 
-Rute Sprint 3 dijalankan oleh `transaction-routes.ts`. `state` daftar rental menerima `aktif|selesai|dibatalkan`; aksi rental/keputusan pembayaran wajib `version`. Keputusan bukti memakai `decision: diterima|ditolak` disertai `verifiedAmount` atau `reason`. POST `/api/reports` pada Sprint 3 menerima `{messageId,reason}`; pengelolaan laporan umum mengikuti Sprint 5.
+Rute transaksi dijalankan oleh `transaction-routes.ts`; fitur kepercayaan/admin Sprint 5 di `trust-routes.ts`. `state` daftar rental menerima `aktif|selesai|dibatalkan`; aksi rental/keputusan pembayaran wajib `version`. Keputusan bukti memakai `decision: diterima|ditolak` disertai `verifiedAmount` atau `reason`. POST `/api/reports` menerima `{targetType,targetId,reason,note?}`; body lama `{messageId,reason}` tetap diterima untuk kompatibilitas chat.
 
-Sprint 4 mengimplementasikan rute serah terima, masa cek, jadwal ulang, tidak hadir, pembukaan sengketa, bukti sengketa, antrean pencairan, kas, serta daftar/detail sengketa admin (read-only). `POST /check` menerima `{decision:"sesuai"}` atau `{decision:"masalah", category, description, evidencePaths}`. Pembatalan saat `DIBAYAR` wajib mengirim `fee` sesuai konsekuensi yang ditampilkan. POST `/api/admin/cash-movements` pada Sprint 4 hanya mencatat pemindahan antar rekening. Putusan sengketa, review, penyesuaian, rekonsiliasi, dan penarikan komisi mengikuti Sprint 5. Ringkasan dan contoh body ada di [Sprint 4](sprints/04-transaksi-ii.md#api-baru).
+Sprint 4 mengimplementasikan rute serah terima, masa cek, jadwal ulang, tidak hadir, pembukaan/bukti sengketa, antrean pencairan dan kas. `POST /check` menerima `{decision:"sesuai"}` atau `{decision:"masalah", category, description, evidencePaths}`. Pembatalan saat `DIBAYAR` wajib mengirim `fee` sesuai konsekuensi yang ditampilkan. `POST /api/admin/cash-movements` mencatat pemindahan antar rekening; `POST /api/admin/commission-withdrawals` mencatat penarikan komisi oleh SA. Migration `0011` menambah tanggapan sengketa, review, rekonsiliasi; memperluas reports/users/payout tasks. API putusan, penyesuaian, role, penghapusan akun dan endpoint lain dijelaskan di [Sprint 5](sprints/05-kepercayaan-admin.md#api-tambahan).
 
 GET `/api/admin/payments` menerima `q` (kode transaksi/nama pengirim, maksimal 100 karakter) dan `sla=all|overdue|on_time`. Filter diterapkan sebelum batas 100 bukti, dengan urutan bukti terlama. `/api/admin/summary` menyertakan `paymentsPending` dan `paymentsOverdue` dari seluruh bukti menunggu, untuk badge antrean yang diperbarui setiap 5 detik. Templat alasan penolakan mengisi teks yang tetap dapat disunting; server tetap memvalidasi alasan dan hak admin.
 
@@ -355,11 +352,11 @@ Dipanggil tiap menit oleh `pg_cron`. Semua job **idempoten** (aman dijalankan ul
 | `sla-flags` | Tandai & beri tahu admin untuk antrean yang lewat target |
 | `reminders` | Pengingat bayar, serah terima, jatuh tempo, masa cek |
 | `reveal-reviews` | Buka rating yang sudah 7 hari |
-| `expire-strikes` / `auto-suspend` | Hitung strike 90 hari, tangguhkan bila ≥ 3 |
+| `auto-suspend` | Hitung strike aktif sejak peninjauan terakhir, tangguhkan bila mencapai ambang; strike kedaluwarsa diabaikan, riwayat tidak dihapus |
 | `expire-login-requests` | Login request & konfirmasi aksi lewat `expires_at` → kedaluwarsa; hapus yang > 7 hari |
 | `purge-identity` | Hapus foto identitas akun yang sudah dihapus > 30 hari |
 
-Sprint 3 memasang tiga job: `expire-login-requests`, `expire-requests`, dan `expire-payments`. Sprint 4 menambahkan `stale-start`, `close-review-window`, `overdue-returns`, `no-show-timeouts`, `release-claims`, `reminders`, dan `sla-flags`; `supabase/jobs.sql` memasang 10 job. `reveal-reviews`, `expire-strikes`/`auto-suspend`, dan `purge-identity` mengikuti Sprint 5. Pengiriman Telegram berjalan lewat trigger outbox pada migrasi `0007`, tanpa jadwal atau cron cadangan. Callback mengirim delivery yang diminta dan melakukan maksimal 5 percobaan dalam anggaran 240 detik; route mengizinkan 300 detik (Vercel Fluid Compute). Gangguan endpoint atau retry yang melewati anggaran memerlukan redispatch operasional. Lihat [penyiapan dan pemulihan](sprints/03-transaksi-i.md#webhook-telegram-tanpa-cron).
+`supabase/jobs.sql` memasang 13 job: tiga fondasi/kedaluwarsa Sprint 3, tujuh job transaksi/pengingat Sprint 4, dan `reveal-reviews`, `auto-suspend`, `purge-identity` Sprint 5. Pengiriman Telegram berjalan lewat trigger outbox pada migrasi `0007`/`0011`/`0012`, tanpa jadwal atau cron cadangan. Callback mengirim delivery yang diminta dan melakukan maksimal 5 percobaan dalam anggaran 240 detik; route mengizinkan 300 detik (Vercel Fluid Compute). Gangguan endpoint atau retry yang melewati anggaran memerlukan redispatch operasional. Lihat [penyiapan dan pemulihan](sprints/03-transaksi-i.md#webhook-telegram-tanpa-cron) serta [aktivasi Sprint 5](sprints/05-kepercayaan-admin.md).
 
 ## 8. Lingkungan, CI & Tes
 - Lingkungan: `local` (Supabase CLI + Next dev), `staging`, `production`; database dan bucket terpisah per lingkungan. Setiap lingkungan memakai **bot Telegram terpisah** (mis. `@SewaMatesDevBot`, `@SewaMatesStagingBot`, `@SewaMatesBot`); di `local`, webhook diarahkan lewat tunnel (mis. cloudflared) atau bot dijalankan mode long polling.
@@ -392,7 +389,6 @@ Sprint 3 memasang tiga job: `expire-login-requests`, `expire-requests`, dan `exp
 | Pemesanan bentrok | Exclusion constraint + kunci baris item |
 | Sebagian mahasiswa tidak memakai Telegram | Halaman login menautkan unduhan Telegram; pantau rasio pengunjung yang batal di halaman login; cadangan login via email OTP bisa ditambahkan bila perlu |
 | Pengguna memblokir bot sehingga notifikasi tidak sampai | Deteksi 403/`my_chat_member`, banner di aplikasi, notifikasi in-app tetap ada |
-| Telegram tidak bisa diakses (gangguan/pemblokiran) | Notifikasi in-app & web push tetap jalan; sesi aktif 30 hari tidak bergantung pada Telegram |
-| Push iOS tidak sampai | Telegram untuk semua kejadian kritis |
+| Telegram tidak bisa diakses (gangguan/pemblokiran) | Notifikasi in-app tetap jalan; sesi aktif 30 hari tidak bergantung pada Telegram |
 | Foto besar di jaringan lemah | Kompres di klien, unggahan bisa diulang |
 | Job terjadwal berhenti | Alert kegagalan; job idempoten; endpoint bisa dipanggil manual oleh admin |

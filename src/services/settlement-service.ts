@@ -41,7 +41,8 @@ const MEMOS: Record<Exclude<SettlementReason, "putusan">, string> = {
 export async function settleRental(
   tx: Executor,
   rental: Rental,
-  reason: Exclude<SettlementReason, "putusan"> = "refund_penuh",
+  reason: SettlementReason = "refund_penuh",
+  decision?: { owner: number; renter: number; commission: number },
 ) {
   const open = await tx
     .select()
@@ -54,6 +55,14 @@ export async function settleRental(
       ),
     )
     .for("update");
+  if (reason === "putusan")
+    assert(
+      !rental.settledAt &&
+        open.reduce((sum, p) => sum + p.verifiedAmount!, 0) === rental.amountReceived,
+      "FUNDS_CHANGED",
+      "Dana sengketa tidak sesuai bukti pembayaran. Muat ulang dan periksa ledger.",
+      409,
+    );
   if (!open.length) return [];
   const now = new Date(),
     targetAt = payoutTarget(now, rental.rulesSnapshot),
@@ -93,6 +102,7 @@ export async function settleRental(
         ? cancellationSplit(rental, received, rental.rulesSnapshot.cancellation_rate_bp)
         : null;
     const split =
+      decision ??
       cancellation ??
       (reason === "normal" ? normalSplit(rental, received, rental.lateFee) : fullRefund(received));
     assert(
@@ -110,7 +120,7 @@ export async function settleRental(
         { account: "hutang_penyewa", credit: split.renter },
         { account: "pendapatan_komisi", credit: split.commission },
       ],
-      MEMOS[reason],
+      reason === "putusan" ? "Pembagian dana sesuai putusan sengketa" : MEMOS[reason],
     );
     for (const [recipientId, kind, amount] of [
       [rental.ownerId, "pencairan_pemilik", split.owner],

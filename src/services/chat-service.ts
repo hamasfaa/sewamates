@@ -132,9 +132,14 @@ export async function presentMessages(rows: (typeof messages.$inferSelect)[], ra
       rentalId: row.rentalId,
       type: row.type,
       createdAt: row.createdAt,
-      ...(row.type === "system" ? { text: row.body, redacted: false } : redactChat(row.body)),
+      ...(row.hiddenAt && !raw
+        ? { text: "Pesan disembunyikan oleh admin", redacted: true }
+        : row.type === "system"
+          ? { text: row.body, redacted: false }
+          : redactChat(row.body)),
       ...(raw ? { originalBody: row.body } : {}),
-      imageUrl: row.imagePath ? await evidencePreview(row.imagePath) : null,
+      imageUrl:
+        row.imagePath && (!row.hiddenAt || raw) ? await evidencePreview(row.imagePath) : null,
     })),
   );
 }

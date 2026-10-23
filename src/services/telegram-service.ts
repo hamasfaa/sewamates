@@ -17,6 +17,9 @@ import { appUrl } from "@/src/lib/env";
 import { telegramApi } from "./telegram-api";
 import { rentals } from "@/src/db/schema";
 import { RENTAL_LABELS } from "@/src/domain/rental-state-machine";
+import { anonymizeAccount } from "./account-deletion-service";
+import { AppError } from "@/src/lib/errors";
+import { lockAccountActivity } from "./account-activity";
 
 type PendingLogin = typeof loginRequests.$inferSelect;
 async function showNumbers(chatId: number, request: PendingLogin) {
@@ -284,12 +287,18 @@ async function handleCallback(db: Executor, query: CallbackQuery) {
     return;
   }
   if (kind === "confirm" && ["yes", "no"].includes(value)) {
+    const [reference] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.telegramUserId, sender));
+    if (!reference) return;
+    await lockAccountActivity(db, [reference.id]);
     const [user] = await db
       .select()
       .from(users)
       .where(eq(users.telegramUserId, sender))
       .for("update");
-    if (!user || user.accountStatus !== "aktif") return;
+    if (!user || user.accountStatus === "dihapus") return;
     const [entry] = await db
       .select()
       .from(actionConfirmations)
@@ -301,7 +310,35 @@ async function handleCallback(db: Executor, query: CallbackQuery) {
       });
       return;
     }
-    if (entry.action !== "ubah_rekening") return; // Account deletion arrives in Sprint 5.
+    if (entry.action === "hapus_akun") {
+      if (value === "yes") {
+        try {
+          await anonymizeAccount(db, user.id);
+        } catch (error) {
+          if (!(error instanceof AppError)) throw error;
+          await telegramApi().answerCallbackQuery(query.id, {
+            text: error.message.slice(0, 190),
+            show_alert: true,
+          });
+          return;
+        }
+      }
+      await db
+        .update(actionConfirmations)
+        .set({ status: value === "yes" ? "dikonfirmasi" : "ditolak" })
+        .where(eq(actionConfirmations.id, id));
+      await telegramApi().answerCallbackQuery(query.id, {
+        text: value === "yes" ? "Akun dihapus." : "Penghapusan dibatalkan.",
+      });
+      await telegramApi().sendMessage(
+        chat,
+        value === "yes"
+          ? "Akun SewaMates telah dihapus dan semua sesi dicabut."
+          : "Penghapusan akun dibatalkan.",
+      );
+      return;
+    }
+    if (user.accountStatus !== "aktif") return;
     if (value === "yes") {
       const payload = entry.payload as {
         type: "bank" | "ewallet";

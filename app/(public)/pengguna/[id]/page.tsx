@@ -9,6 +9,8 @@ import { ownerListings } from "@/src/services/search-service";
 import { Card } from "@/src/components/ui/card";
 import { ItemCard } from "@/src/components/item-card";
 import { VerificationChip } from "@/src/components/ui/status-chip";
+import { BlockControl, PublicReviews, ReportControl } from "@/src/components/trust-user";
+import { currentSession } from "@/src/lib/auth";
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!z.uuid().safeParse(id).success) notFound();
@@ -26,6 +28,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
     .where(and(eq(users.id, id), eq(users.accountStatus, "aktif")));
   if (!user) notFound();
   const listings = await ownerListings(getDb(), id);
+  const viewer = await currentSession();
   return (
     <div className="page-container max-w-4xl py-12">
       <Card className="mx-auto max-w-2xl text-center">
@@ -64,7 +67,17 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
             <p className="mt-1 text-xs text-muted-foreground">Transaksi selesai</p>
           </div>
         </div>
+        {viewer && viewer.user.id !== id && (
+          <>
+            <ReportControl type="user" id={id} />
+            <BlockControl id={id} />
+          </>
+        )}
       </Card>
+      <section className="mt-8">
+        <h2 className="mb-4 text-xl">Ulasan pengguna</h2>
+        <PublicReviews type="users" id={id} viewerId={viewer?.user.id} />
+      </section>
       {listings.length > 0 && (
         <section className="mt-10" aria-labelledby="owner-listings">
           <h2 id="owner-listings" className="mb-4 text-xl">

@@ -29,4 +29,4 @@ Per 23 Oktober 2026. Implementasi dan hasil tes lokal ada di [Sprint 4 — Trans
 ## 4. Diserahkan ke Sprint 5
 
 - Putusan sengketa (F24): lanjutkan, batal, dan bagi dana. Putusan "lanjutkan" wajib memeriksa ulang ketersediaan karena `SENGKETA` tidak menahan tanggal (A-3.3).
-- Tanggapan sengketa (F13), penangguhan otomatis 3 strike, penarikan komisi, rekonsiliasi, tugas penyesuaian super admin, rating, dan web push.
+- Tanggapan sengketa (F13), penangguhan otomatis 3 strike, penarikan komisi, rekonsiliasi, tugas penyesuaian super admin dan rating.

@@ -1,4 +1,5 @@
 "use client";
+import { DisputeResponseForm } from "./trust-user";
 import { useId, useState } from "react";
 import Image from "next/image";
 import { api } from "@/src/lib/client-api";
@@ -10,6 +11,7 @@ import { Card } from "./ui/card";
 import { Input } from "./ui/input";
 import { StatusChip } from "./ui/status-chip";
 import { Countdown, type RentalDetail } from "./rental-ui";
+import { useClock } from "@/src/lib/live-api";
 
 type Props = { data: RentalDetail; refresh: () => Promise<void> };
 function useAction(refresh: () => Promise<void>) {
@@ -559,6 +561,7 @@ function EvidenceForm({ data, refresh }: Props) {
 }
 // Dispute status for both parties; the admin decision itself follows in Sprint 5 (F24).
 export function DisputePanel({ data, refresh }: Props) {
+  const now = useClock();
   const r = data.rental,
     d = data.dispute;
   if (!d) return null;
@@ -574,8 +577,12 @@ export function DisputePanel({ data, refresh }: Props) {
       </div>
       <p className="mt-3 text-sm break-words whitespace-pre-line">{d.description}</p>
       <p className="mt-2 text-xs text-muted-foreground">
-        Dibuka {dateWib(d.createdAt)} oleh {who(d.openedBy)}. Dana tetap ditahan sampai admin
-        memutuskan.
+        Dibuka {dateWib(d.createdAt)} oleh {who(d.openedBy)}.
+        {d.status === "dibuka"
+          ? " Dana tetap ditahan sampai admin memutuskan."
+          : d.decidedAt
+            ? ` Diputuskan ${dateWib(d.decidedAt)}.`
+            : ""}
       </p>
       {d.status === "dibuka" && (
         <>
@@ -602,6 +609,34 @@ export function DisputePanel({ data, refresh }: Props) {
             </li>
           ))}
         </ul>
+      )}
+      {d.responses.map((response) => (
+        <div key={response.id} className="mt-4 text-sm">
+          <strong>
+            Tanggapan {who(response.userId)} · {dateWib(response.createdAt)}
+          </strong>
+          <p className="mt-1 break-words whitespace-pre-line">{response.body}</p>
+        </div>
+      ))}
+      {d.status === "dibuka" &&
+        Date.parse(d.respondBy) > now &&
+        (data.viewer.isOwner || data.viewer.isRenter) &&
+        d.openedBy !== (data.viewer.isOwner ? r.ownerId : r.renterId) &&
+        !d.responses.some((t) => t.userId === (data.viewer.isOwner ? r.ownerId : r.renterId)) && (
+          <DisputeResponseForm id={d.id} refresh={refresh} />
+        )}
+      {d.status === "diputuskan" && (
+        <div className="notice mt-4">
+          <p className="font-bold">Putusan: {d.outcome?.replaceAll("_", " ")}</p>
+          <p className="mt-2 break-words whitespace-pre-line">{d.decisionNote}</p>
+          {d.outcome !== "lanjutkan" && (
+            <p className="mt-2">
+              Pemilik {rupiah(d.ownerAmount || 0)} · penyewa {rupiah(d.renterAmount || 0)} · komisi{" "}
+              {rupiah(d.commissionAmount || 0)}
+            </p>
+          )}
+          {d.newStartAt && <p>Jadwal baru {dateWib(d.newStartAt)}</p>}
+        </div>
       )}
       {data.actions.canAddEvidence && <EvidenceForm data={data} refresh={refresh} />}
     </Card>

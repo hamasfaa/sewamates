@@ -86,6 +86,7 @@ export async function myProfile(db: Executor, user: User) {
       role: user.role,
       campusId: user.campusId,
       accountStatus: user.accountStatus,
+      suspensionReason: user.suspensionReason,
       verificationStatus: user.verificationStatus,
       termsAcceptedAt: user.termsAcceptedAt,
       telegramBlocked: Boolean(user.telegramBlockedAt),

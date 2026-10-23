@@ -14,6 +14,10 @@ import { uploadInput } from "./validation";
 import { canUpload, signUpload } from "./storage";
 import { privateMarketplaceRoute, publicMarketplaceRoute } from "./marketplace-routes";
 import { transactionRoute } from "./transaction-routes";
+import { trustRoute } from "./trust-routes";
+import { publicReviews, revealReviews } from "@/src/services/review-service";
+import { autoSuspend } from "@/src/services/trust-service";
+import { purgeIdentity } from "@/src/services/account-deletion-service";
 import { expireRentals } from "@/src/jobs/expire-rentals";
 import {
   startLogin,
@@ -50,8 +54,11 @@ import {
 import { reminders, slaFlags } from "@/src/jobs/alert-jobs";
 import { cookies } from "next/headers";
 const uuid = (value: string) => z.uuid().parse(value);
-// Sprint 4 jobs, scheduled every minute by supabase/jobs.sql.
+// Lifecycle and retention jobs, scheduled every minute by supabase/jobs.sql.
 const JOBS: Record<string, (db: ReturnType<typeof getDb>) => Promise<unknown>> = {
+  "reveal-reviews": revealReviews,
+  "auto-suspend": autoSuspend,
+  "purge-identity": purgeIdentity,
   "stale-start": staleStart,
   "close-review-window": closeReviewWindow,
   "overdue-returns": overdueReturns,
@@ -173,6 +180,13 @@ export const dispatch = endpoint(async (request) => {
   if (path === "campuses" && method === "GET")
     return json(await listCampuses(getDb(), url.searchParams.get("q") || ""));
   const route = { request, url, path, parts, method };
+  if (/^(users|items)\/[^/]+\/reviews$/.test(path) && method === "GET")
+    return json(
+      await publicReviews(
+        getDb(),
+        parts[0] === "users" ? { userId: uuid(parts[1]) } : { itemId: uuid(parts[1]) },
+      ),
+    );
   const publicRoute = await publicMarketplaceRoute(route);
   if (publicRoute) return publicRoute;
   if (/^users\/[^/]+$/.test(path) && method === "GET") {
@@ -317,6 +331,8 @@ export const dispatch = endpoint(async (request) => {
         idempotencyKey,
       ),
     );
+  const trust = await trustRoute(route, actor.user, idempotencyKey);
+  if (trust) return trust;
   const transactions = await transactionRoute(route, actor.user, idempotencyKey);
   if (transactions) return transactions;
   const privateRoute = await privateMarketplaceRoute(route, actor.user, idempotencyKey);

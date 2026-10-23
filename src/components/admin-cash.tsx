@@ -73,8 +73,10 @@ export function CashPanel() {
                 {query.data.movements.map((movement) => (
                   <li key={movement.id} className="py-3 text-sm">
                     <p className="font-bold">
-                      {movement.fromProvider} {movement.fromAccountNo} → {movement.toProvider}{" "}
-                      {movement.toAccountNo}
+                      {movement.fromProvider} {movement.fromAccountNo} →{" "}
+                      {movement.type === "penarikan_komisi"
+                        ? "Penarikan komisi"
+                        : `${movement.toProvider} ${movement.toAccountNo}`}
                     </p>
                     <p className="mt-1">
                       {rupiah(movement.amount)} · biaya {rupiah(movement.fee)} ·{" "}

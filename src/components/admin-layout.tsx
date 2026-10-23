@@ -78,6 +78,25 @@ export function AdminLayout({
               count: summary.data?.disputesOpen,
             },
             { href: "/admin/kas", label: "Kas", icon: Landmark, count: undefined },
+            {
+              href: "/admin/laporan",
+              label: "Laporan",
+              icon: Shield,
+              count: summary.data?.reportsPending,
+            },
+            {
+              href: "/admin/pengguna",
+              label: "Pengguna",
+              icon: BadgeCheck,
+              count: summary.data?.usersSuspended,
+            },
+            {
+              href: "/admin/rekonsiliasi",
+              label: "Rekonsiliasi",
+              icon: Landmark,
+              count: undefined,
+            },
+            { href: "/admin/rekap", label: "Rekap", icon: LayoutDashboard, count: undefined },
             { href: "/admin/audit", label: "Audit log", icon: ScrollText, count: undefined },
             ...(superAdmin
               ? [

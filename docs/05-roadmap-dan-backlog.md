@@ -26,7 +26,7 @@ Beberapa dependensi eksternal butuh waktu persetujuan, jadi harus diurus sebelum
 | Sprint 2 – Marketplace | 2 minggu | Listing, moderasi, pencarian, detail |
 | Sprint 3 – Transaksi I | 2 minggu | Pengajuan, pembayaran manual, chat, notifikasi Telegram, job |
 | Sprint 4 – Transaksi II | 2 minggu | Serah terima, pengembalian, pembatalan, pencairan manual |
-| Sprint 5 – Kepercayaan & admin | 2 minggu | Sengketa, rating, laporan, strike, rekonsiliasi, push |
+| Sprint 5 – Kepercayaan & admin | 2 minggu | Sengketa, rating, laporan, strike, rekonsiliasi |
 | Sprint 6 – Hardening | 2 minggu | Keamanan, performa, e2e, uji pemulihan, beta terbatas |
 | Rilis | 1 minggu | Production, monitoring, runbook |
 | Iterasi | berkelanjutan | Fitur P1/P2 (F40–F47), terutama payment gateway (F43) bila beban admin terlalu besar |
@@ -85,12 +85,14 @@ Status implementasi, penyiapan migrasi sampai `0007`, dan bukti pemeriksaan ters
 Implementasi lokal, migrasi sampai `0010`, dan hasil pemeriksaan tersedia di [Sprint 4 — Transaksi II](sprints/04-transaksi-ii.md); keputusan di [ADR 0005](decisions/0005-transaksi-sprint-4.md). Aktivasi Telegram dicatat di [perbaikan notifikasi](sprints/04-notifikasi-telegram.md). Penerapan ke lingkungan bersama, jadwal job, dan uji perangkat fisik dicatat di [sisa Sprint 4](sprints/04-transaksi-ii-sisa.md).
 
 **Sprint 5 – Kepercayaan & admin**
-- Migrasi: `reviews`, `reports`, `user_blocks`, `reconciliations`, `push_subscriptions`; kolom rating di `items`.
+- Migrasi: `reviews`, `reports`, `user_blocks`, `reconciliations`; kolom rating di `items`.
 - F13 tanggapan sengketa + F24 putusan admin (lanjutkan / batal / bagi dana, invarian A-3.8).
 - F14 rating (job `reveal-reviews`, rating barang).
 - F16 laporan & blokir; F26 manajemen pengguna, penangguhan otomatis (`auto-suspend`).
 - F25 rekonsiliasi + penarikan komisi; F28 rekap & audit log; tugas penyesuaian (SA).
-- F15 web push; F17 hapus akun (+ job `purge-identity`).
+- F17 hapus akun (+ job `purge-identity`).
+
+Implementasi, migrasi sampai `0012` dan aktivasi 13 job ada di [Sprint 5 — Kepercayaan & admin](sprints/05-kepercayaan-admin.md). Aturan keputusan implementasi dicatat di [ADR 0006](decisions/0006-kepercayaan-admin-sprint-5.md); pengujian pengguna mengikuti [UAT Sprint 5](sprints/05-kepercayaan-admin-e2e.md). Aktivasi hosted dan pengujian perangkat fisik perlu dicatat terpisah dari tes lokal.
 
 **Sprint 6 – Hardening**
 - Review keamanan (otorisasi per endpoint, RLS, rate limit, header).

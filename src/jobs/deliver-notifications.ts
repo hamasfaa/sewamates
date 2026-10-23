@@ -30,6 +30,7 @@ export async function deliverNotifications(
         .where(
           and(
             eq(deliveries.status, "antre"),
+            eq(deliveries.channel, "telegram"),
             options.deliveryIds ? inArray(deliveries.id, options.deliveryIds) : undefined,
             lte(deliveries.nextAttemptAt, sql`now()`),
             or(isNull(deliveries.claimedUntil), lte(deliveries.claimedUntil, now)),
@@ -91,6 +92,7 @@ export async function deliverNotifications(
         .where(
           and(
             eq(deliveries.status, "antre"),
+            eq(deliveries.channel, "telegram"),
             options.deliveryIds ? inArray(deliveries.id, options.deliveryIds) : undefined,
             or(isNull(deliveries.claimedUntil), lte(deliveries.claimedUntil, new Date())),
           ),
@@ -171,6 +173,7 @@ export async function deliverNotificationEvent(
     const wait = Math.max(0, delivery.nextAttemptAt.getTime() - Date.now());
     if (Date.now() + wait + 10 >= deadline) break;
     if (wait) await delay(wait + 5);
+    if (delivery.channel !== "telegram") return { status: "unsupported_channel" };
     const result = await deliverNotifications(db, {
       deliveryIds: [deliveryId],
       maxDurationMs: Math.min(8000, deadline - Date.now()),

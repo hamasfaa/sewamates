@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq, sql } from "drizzle-orm";
+import { readFile } from "node:fs/promises";
 import type { Database } from "@/src/db";
 import * as s from "@/src/db/schema";
 import { resetDatabase, testDatabase, user } from "./helpers/database";
@@ -22,10 +23,10 @@ vi.mock("@/src/db", async (original) => ({
   ...(await original<typeof import("@/src/db")>()),
   getDb: () => db,
 }));
-let db: Database, close: () => Promise<void>;
+let db: Database, close: () => Promise<void>, execRaw: (source: string) => Promise<unknown>;
 
 beforeAll(async () => {
-  ({ db, close } = await testDatabase());
+  ({ db, close, execRaw } = await testDatabase());
   // Local SQL stubs record the HTTP request transactionally, without making network calls.
   await db.execute(sql`CREATE SCHEMA vault`);
   await db.execute(sql`CREATE TABLE vault.decrypted_secrets(name text, decrypted_secret text)`);
@@ -75,6 +76,78 @@ function request(deliveryId: string, token = "test-webhook-secret") {
 }
 
 describe("webhook Telegram dari event database", () => {
+  it("cleans an already-applied browser delivery schema while preserving Telegram and in-app events", async () => {
+    const actor = await user(db);
+    const [session] = await db
+      .insert(s.sessions)
+      .values({
+        userId: actor.id,
+        tokenHash: "cleanup-session",
+        expiresAt: new Date(Date.now() + 3600000),
+      })
+      .returning();
+    const previous = await readFile("supabase/migrations/0011_sprint_5_trust_admin.sql", "utf8");
+    const cleanup = await readFile("supabase/migrations/0012_remove_web_push.sql", "utf8");
+    const tableStart = previous.indexOf("CREATE TABLE push_subscriptions");
+    const tableEnd = previous.indexOf("DO $$ DECLARE", tableStart);
+    const functionsStart = previous.indexOf(
+      "CREATE OR REPLACE FUNCTION public.dispatch_telegram_delivery",
+    );
+    const functionsEnd = previous.indexOf(
+      "CREATE TRIGGER notification_sprint5_outbox",
+      functionsStart,
+    );
+    try {
+      await execRaw(
+        "ALTER TABLE notification_deliveries DROP CONSTRAINT notification_deliveries_telegram_only; ALTER TABLE users ADD COLUMN push_chat boolean NOT NULL DEFAULT true",
+      );
+      await execRaw(previous.slice(tableStart, tableEnd));
+      await execRaw(
+        previous
+          .slice(functionsStart, functionsEnd)
+          .replace(
+            "CREATE FUNCTION enqueue_sprint5_notifications",
+            "CREATE OR REPLACE FUNCTION enqueue_sprint5_notifications",
+          ),
+      );
+      await db.execute(
+        sql`INSERT INTO push_subscriptions(user_id,session_id,endpoint,p256dh,auth) VALUES(${actor.id},${session.id},'https://fcm.googleapis.com/fcm/send/test','dummy','dummy')`,
+      );
+      const n = await notify(
+        db,
+        actor.id,
+        "dispute_decided",
+        "Putusan",
+        "Uji migrasi",
+        "/transaksi",
+      );
+      const rows = await db
+        .select()
+        .from(s.notificationDeliveries)
+        .where(eq(s.notificationDeliveries.notificationId, n.id));
+      expect(rows.map((r) => r.channel).sort()).toEqual(["push", "telegram"]);
+      const telegram = rows.find((r) => r.channel === "telegram")!;
+      const browser = rows.find((r) => r.channel === "push")!;
+      await db.execute(
+        sql`INSERT INTO push_receipts(delivery_id,subscription_id) SELECT ${browser.id}::uuid,id FROM push_subscriptions WHERE user_id=${actor.id}`,
+      );
+      await execRaw(cleanup);
+      expect(
+        (
+          await db.execute(
+            sql`SELECT to_regclass('public.push_subscriptions') AS subscriptions, to_regclass('public.push_receipts') AS receipts, EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='users' AND column_name='push_chat') AS preference`,
+          )
+        ).rows[0],
+      ).toEqual({ subscriptions: null, receipts: null, preference: false });
+      expect(await db.select().from(s.notifications)).toHaveLength(1);
+      expect(await db.select().from(s.notificationDeliveries)).toEqual([telegram]);
+      await deliverNotificationEvent(db, telegram.id);
+      expect(mocks.sendMessage).toHaveBeenCalledTimes(1);
+      expect(mocks.sendMessage.mock.calls[0][0]).toBe(actor.telegramChatId);
+    } finally {
+      await execRaw(cleanup);
+    }
+  });
   it.each([
     "handover_arrived",
     "handover_completed",
@@ -83,6 +156,11 @@ describe("webhook Telegram dari event database", () => {
     "review_ending",
     "payout_scheduled",
     "dispute_evidence",
+    "dispute_responded",
+    "dispute_decided",
+    "account_suspended",
+    "account_reactivated",
+    "account_counterparty_suspended",
   ])(
     "event transaksi %s mengantrekan webhook dan mengirim ke penerima yang tertaut",
     async (type) => {

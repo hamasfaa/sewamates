@@ -85,6 +85,12 @@ function ProfileFields({
   }
   return (
     <Card className="min-w-0 p-4 sm:p-6">
+      {profile.user.accountStatus === "ditangguhkan" && (
+        <p className="notice notice-error mb-5" role="status">
+          Akunmu ditangguhkan. {profile.user.suspensionReason} Pengajuan dan listing baru dibatasi.
+          Selesaikan transaksi yang sudah disetujui melalui halaman Transaksi.
+        </p>
+      )}
       <div className="mb-6 flex flex-col items-start gap-3 sm:flex-row sm:justify-between">
         <div className="min-w-0">
           <span className="mb-4 inline-flex rounded-2xl bg-secondary p-3 text-primary">

@@ -39,6 +39,7 @@ import { notify } from "./notification-service";
 import { settleRental } from "./settlement-service";
 import { giveStrike } from "./strike-service";
 import { rentalProgress } from "./rental-progress";
+import { lockAccountActivity } from "./account-activity";
 
 export const periodSql = (start: Date, end: Date) =>
   sql`tstzrange(${start.toISOString()}::timestamptz,${end.toISOString()}::timestamptz,'[)')`;
@@ -177,8 +178,14 @@ export async function createRental(db: Database, actor: User, raw: unknown, key?
   requireActive(actor);
   requireVerified(actor);
   return mutation(db, actor.id, "rental:create", key, input, async (tx) => {
+    const [listing] = await tx
+      .select({ ownerId: items.ownerId })
+      .from(items)
+      .where(eq(items.id, input.itemId));
+    assert(listing, "NOT_FOUND", "Barang tidak tersedia.", 404);
+    await lockAccountActivity(tx, [actor.id, listing.ownerId]);
     await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`rental-create:${actor.id}`}))`);
-    const [renter] = await tx.select().from(users).where(eq(users.id, actor.id)).for("share");
+    const [renter] = await tx.select().from(users).where(eq(users.id, actor.id)).for("key share");
     requireActive(renter);
     requireVerified(renter);
     requireOnboarded(renter);
@@ -325,6 +332,11 @@ export async function actOnRental(
 ) {
   const input = rentalActionInput.parse(raw);
   return mutation(db, actor.id, `rental:${id}:${action}`, key, input, async (tx) => {
+    if (action === "approve" || action === "reject") {
+      const [reference] = await tx.select().from(rentals).where(eq(rentals.id, id));
+      assert(reference, "NOT_FOUND", "Transaksi tidak ditemukan.", 404);
+      await lockAccountActivity(tx, [reference.ownerId, reference.renterId]);
+    }
     const rental = await lockRental(tx, id),
       now = new Date();
     const owner = actor.id === rental.ownerId,

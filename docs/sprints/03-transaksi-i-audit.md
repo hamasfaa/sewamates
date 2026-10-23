@@ -54,6 +54,6 @@ Validasi penyelesaian: **159 tes PostgreSQL lulus**, ditambah pemeriksaan terara
 
 ## Batas sprint
 
-Serah terima foto/kode/QR, pengembalian, jadwal ulang, tidak hadir, pembatalan setelah lunas, dan pelaksanaan pencairan/refund mengikuti Sprint 4. Stepper lengkap dan pengembangan detail transaksi F12 perlu diselaraskan saat Sprint 4. Pengingat dan penanda SLA terjadwal juga berada pada backlog Sprint 4; web push mengikuti Sprint 5.
+Serah terima foto/kode/QR, pengembalian, jadwal ulang, tidak hadir, pembatalan setelah lunas, dan pelaksanaan pencairan/refund mengikuti Sprint 4. Stepper lengkap dan pengembangan detail transaksi F12 perlu diselaraskan saat Sprint 4. Pengingat dan penanda SLA terjadwal juga berada pada backlog Sprint 4.
 
 Callback Telegram saat ini melakukan retry terbatas sampai 240 detik dan tidak memiliki cron cadangan, sesuai keputusan pemilik aplikasi. Pemulihan event yang tertahan mengikuti [panduan operasional](03-transaksi-i.md#webhook-telegram-tanpa-cron).

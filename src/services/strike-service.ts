@@ -11,7 +11,7 @@ const REASONS: Record<StrikeReason, string> = {
   sengketa: "putusan sengketa",
   laporan: "laporan yang terbukti",
 };
-// At most one strike per user, rental and reason (A-3.11). Suspension at the limit follows Sprint 5.
+// At most one strike per user, rental and reason (A-3.11). The auto-suspend job reviews active strikes every minute.
 export async function giveStrike(
   tx: Executor,
   userId: string,

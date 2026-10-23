@@ -2,6 +2,7 @@ import { asc, desc, eq, inArray } from "drizzle-orm";
 import type { Executor } from "@/src/db";
 import {
   disputeEvidence,
+  disputeResponses,
   disputes,
   handoverPhotos,
   handoverRecords,
@@ -53,6 +54,20 @@ export async function disputeView(db: Executor, disputeId: string) {
     decideBy: dispute.decideBy,
     outcome: dispute.outcome,
     decisionNote: dispute.decisionNote,
+    ownerAmount: dispute.ownerAmount,
+    renterAmount: dispute.renterAmount,
+    commissionAmount: dispute.commissionAmount,
+    newStartAt: dispute.newStartAt,
+    decidedAt: dispute.decidedAt,
+    responses: await db
+      .select({
+        id: disputeResponses.id,
+        userId: disputeResponses.userId,
+        body: disputeResponses.body,
+        createdAt: disputeResponses.createdAt,
+      })
+      .from(disputeResponses)
+      .where(eq(disputeResponses.disputeId, disputeId)),
     createdAt: dispute.createdAt,
     evidence: await Promise.all(
       evidence.map(async (item) => ({
@@ -292,7 +307,7 @@ export async function rentalProgress(
         rental.status === "DIBAYAR"
           ? (["tidak_sesuai"] as DisputeCategory[])
           : USER_DISPUTE_CATEGORIES,
-      canAddEvidence: Boolean(me && dispute?.status === "dibuka"),
+      canAddEvidence: Boolean(me && dispute?.status === "dibuka" && dispute.respondBy > now),
     },
   };
 }

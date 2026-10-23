@@ -24,7 +24,7 @@ Semua aturan dan angka merujuk ke [01 – Alur & Aturan Sistem](01-alur-dan-atur
 | F12 | Pelacak & riwayat transaksi (termasuk bukti pencairan) | P0 | A-2 |
 | F13 | Sengketa | P0 | A-3.10 |
 | F14 | Rating & review | P0 | A-3.12 |
-| F15 | Notifikasi (in-app + Telegram bot + web push) | P0 | – |
+| F15 | Notifikasi (in-app + Telegram bot) | P0 | – |
 | F16 | Laporan konten/pengguna | P0 | – |
 | F17 | Hapus akun | P0 | – |
 | F18 | Telegram bot (login, notifikasi, konfirmasi aksi, perintah dasar) | P0 | A-3.1 |
@@ -165,34 +165,34 @@ Semua aturan dan angka merujuk ke [01 – Alur & Aturan Sistem](01-alur-dan-atur
 - Lonceng dan daftar notifikasi diperbarui setiap 2 detik saat tab aktif, serta saat pengguna kembali ke tab. Ini memakai polling terotorisasi; pengguna tidak perlu memuat ulang halaman.
 - Kanal per kejadian:
 
-| Kejadian | Penerima | In-app | Telegram | Push |
-|----------|----------|:-:|:-:|:-:|
-| Verifikasi identitas diterima/ditolak | Pengguna | ✓ | ✓ | ✓ |
-| Listing disetujui/ditolak | Pemilik | ✓ | ✓ | ✓ |
-| Pengajuan sewa baru | Pemilik | ✓ | ✓ | ✓ |
-| Pengajuan disetujui/ditolak/kedaluwarsa | Penyewa | ✓ | ✓ | ✓ |
-| Batas bayar tinggal 1 jam | Penyewa | ✓ | ✓ | ✓ |
-| Pembayaran lunas / kurang / bukti ditolak | Penyewa (+ pemilik saat lunas) | ✓ | ✓ | ✓ |
-| Pengingat serah terima (H-1 & 1 jam sebelum) | Keduanya | ✓ | ✓ | ✓ |
-| Pihak lain tiba di titik serah terima/pengembalian | Pihak lain | ✓ | ✓ | ✓ |
-| Serah terima selesai / barang sudah dikembalikan | Keduanya | ✓ | ✓ | ✓ |
-| Salah satu pihak menyatakan kondisi pengembalian sesuai | Pihak lain yang belum mengonfirmasi | ✓ | ✓ | ✓ |
-| Pengingat jatuh tempo (H-1 & 2 jam sebelum) | Penyewa | ✓ | ✓ | ✓ |
-| Terlambat mengembalikan | Keduanya | ✓ | ✓ | ✓ |
-| Jadwal ulang / pembatalan / laporan tidak hadir | Pihak lain | ✓ | ✓ | ✓ |
-| Masa cek akan habis | Keduanya | ✓ | ✓ | ✓ |
-| Pencairan/refund dijadwalkan | Penerima | ✓ | ✓ | ✓ |
-| Pencairan/refund selesai (dengan bukti) | Penerima | ✓ | ✓ | ✓ |
-| Sengketa dibuka/bukti ditambah/ditanggapi/diputuskan | Keduanya | ✓ | ✓ | ✓ |
-| Pesan chat baru | Penerima | ✓ | – | ✓ |
-| Strike diberikan / akun ditangguhkan atau diaktifkan lagi | Pengguna | ✓ | ✓ | – |
-| Pengajuan otomatis ditolak/dibatalkan karena penangguhan akun lawan | Pihak lain | ✓ | ✓ | ✓ |
-| Laporan yang dikirim sudah ditangani | Pelapor | ✓ | – | – |
-| Tugas admin baru / lewat target | Semua admin | ✓ | ✓ (grup admin) | – |
+| Kejadian | Penerima | In-app | Telegram |
+|----------|----------|:-:|:-:|
+| Verifikasi identitas diterima/ditolak | Pengguna | ✓ | ✓ |
+| Listing disetujui/ditolak | Pemilik | ✓ | ✓ |
+| Pengajuan sewa baru | Pemilik | ✓ | ✓ |
+| Pengajuan disetujui/ditolak/kedaluwarsa | Penyewa | ✓ | ✓ |
+| Batas bayar tinggal 1 jam | Penyewa | ✓ | ✓ |
+| Pembayaran lunas / kurang / bukti ditolak | Penyewa (+ pemilik saat lunas) | ✓ | ✓ |
+| Pengingat serah terima (H-1 & 1 jam sebelum) | Keduanya | ✓ | ✓ |
+| Pihak lain tiba di titik serah terima/pengembalian | Pihak lain | ✓ | ✓ |
+| Serah terima selesai / barang sudah dikembalikan | Keduanya | ✓ | ✓ |
+| Salah satu pihak menyatakan kondisi pengembalian sesuai | Pihak lain yang belum mengonfirmasi | ✓ | ✓ |
+| Pengingat jatuh tempo (H-1 & 2 jam sebelum) | Penyewa | ✓ | ✓ |
+| Terlambat mengembalikan | Keduanya | ✓ | ✓ |
+| Jadwal ulang / pembatalan / laporan tidak hadir | Pihak lain | ✓ | ✓ |
+| Masa cek akan habis | Keduanya | ✓ | ✓ |
+| Pencairan/refund dijadwalkan | Penerima | ✓ | ✓ |
+| Pencairan/refund selesai (dengan bukti) | Penerima | ✓ | ✓ |
+| Sengketa dibuka/bukti ditambah/ditanggapi/diputuskan | Keduanya | ✓ | ✓ |
+| Pesan chat baru | Penerima | ✓ | – |
+| Strike diberikan / akun ditangguhkan atau diaktifkan lagi | Pengguna | ✓ | ✓ |
+| Pengajuan otomatis ditolak/dibatalkan karena penangguhan akun lawan | Pihak lain | ✓ | ✓ |
+| Laporan yang dikirim sudah ditangani | Pelapor | ✓ | – |
+| Tugas admin baru / lewat target | Semua admin | ✓ | ✓ (grup admin) |
 
-Nomor HP dari login memetakan akun ke chat Telegram yang tertaut. Notifikasi tugas admin dikirim hanya ke grup admin; notifikasi pribadi tetap mengikuti peran pemilik/penyewa pada transaksi tersebut. Pengingat, jadwal ulang, laporan tidak hadir, keterlambatan, pencairan, pembukaan sengketa, strike, dan tugas lewat target tersedia sejak Sprint 4; tanggapan dan putusan sengketa mengikuti Sprint 5.
+Nomor HP dari login memetakan akun ke chat Telegram yang tertaut. Notifikasi tugas admin dikirim hanya ke grup admin; notifikasi pribadi tetap mengikuti peran pemilik/penyewa pada transaksi tersebut. Pengingat, jadwal ulang, laporan tidak hadir, keterlambatan, pencairan, pembukaan sengketa, strike, dan tugas lewat target tersedia sejak Sprint 4. Sprint 5 menambahkan tanggapan/putusan sengketa, penangguhan/aktivasi akun, hasil laporan melalui kanal in-app dan Telegram sesuai matriks di atas, tanpa cron pengiriman. Detail aktivasi ada di [Sprint 5](sprints/05-kepercayaan-admin.md).
 
-- Pengguna dapat mematikan push untuk chat; notifikasi transaksi tidak bisa dimatikan.
+- Pesan chat tersedia in-app; kejadian transaksi penting juga dikirim ke Telegram sesuai matriks.
 
 ### F16 Laporan konten/pengguna
 - Pengguna dapat melaporkan listing, pengguna, pesan, atau review dengan alasan (pilihan + teks).
@@ -221,6 +221,6 @@ Nomor HP dari login memetakan akun ke chat Telegram yang tertaut. Notifikasi tug
 - **Keamanan & privasi**: lihat [04](04-arsitektur-teknis.md) bagian Keamanan.
 - **Aksesibilitas**: kontras teks WCAG AA, target sentuh ≥ 44 px, semua input berlabel.
 - **Bahasa**: Bahasa Indonesia santai-sopan ([03](03-panduan-ux-ui.md)).
-- **Perangkat & browser**: aplikasi pengguna responsif dari 360 px sampai desktop (tata letak di [03](03-panduan-ux-ui.md) bagian 2.1). HP: Chrome Android dan Safari iOS 16.4+ (web push iOS butuh PWA terpasang). PC: Chrome, Edge, Firefox, Safari macOS (2 versi terakhir). Panel admin: Chrome/Edge desktop ≥ 1280 px.
+- **Perangkat & browser**: aplikasi pengguna responsif dari 360 px sampai desktop (tata letak di [03](03-panduan-ux-ui.md) bagian 2.1). HP: Chrome Android dan Safari iOS 16.4+. PC: Chrome, Edge, Firefox, Safari macOS (2 versi terakhir). Panel admin: Chrome/Edge desktop ≥ 1280 px.
 - **Serah terima & pengembalian** (F10) hanya dari HP; di PC tampil QR code "Lanjutkan di HP". Semua fitur pengguna lain tersedia penuh di PC.
 - **Jaringan buruk**: unggahan foto bisa diulang tanpa mengulang langkah; formulir panjang (listing) menyimpan draf lokal.

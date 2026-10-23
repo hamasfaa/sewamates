@@ -3,7 +3,7 @@
 -- Buat secret Vault: sewamates_app_url (tanpa slash akhir), sewamates_job_secret.
 -- Nilai secret kedua harus sama dengan INTERNAL_JOB_SECRET di Vercel.
 -- Nama job tetap: cron.schedule memperbarui jadwal jika nama sudah ada.
--- Telegram memakai database webhook; cron ini untuk kedaluwarsa, serah terima, pencairan, dan pengingat.
+-- Telegram/push memakai database webhook; cron ini untuk aturan waktu transaksi, pengingat, rating, strike dan retensi.
 DO $jobs$
 DECLARE job_name text;
 BEGIN
@@ -11,7 +11,7 @@ BEGIN
   FOREACH job_name IN ARRAY ARRAY[
     'expire-login-requests', 'expire-requests', 'expire-payments',
     'stale-start', 'close-review-window', 'overdue-returns', 'no-show-timeouts',
-    'release-claims', 'reminders', 'sla-flags'
+    'release-claims', 'reminders', 'sla-flags', 'reveal-reviews', 'auto-suspend', 'purge-identity'
   ] LOOP
     PERFORM cron.schedule('sewamates-' || job_name, '* * * * *', format($command$
       SELECT net.http_post(

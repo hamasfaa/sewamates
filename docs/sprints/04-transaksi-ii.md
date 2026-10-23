@@ -67,7 +67,7 @@ POST /api/internal/jobs/<tujuh job Sprint 4>
 
 ## Batas dan sprint berikutnya
 
-- Putusan admin (lanjutkan/batal/bagi dana, F24), tanggapan sengketa (F13), penangguhan otomatis 3 strike, penarikan komisi, rekonsiliasi, tugas penyesuaian super admin, rating, dan web push mengikuti Sprint 5. Sengketa tetap terbuka sampai fitur putusan tersedia.
+- Putusan admin (lanjutkan/batal/bagi dana, F24), tanggapan sengketa (F13), penangguhan otomatis 3 strike, penarikan komisi, rekonsiliasi, tugas penyesuaian super admin dan rating mengikuti Sprint 5. Sengketa tetap terbuka sampai fitur putusan tersedia.
 - Sesuai A-3.3, `SENGKETA` tidak menahan tanggal. Putusan "lanjutkan" pada Sprint 5 perlu memeriksa ulang ketersediaan.
 - Pemindai QR dalam app memakai `BarcodeDetector` bila browser mendukung; di iOS QR dibuka dengan kamera bawaan dan kode terisi dari fragmen URL. Kode selalu bisa diketik.
 - Saldo kas per rekening ditampilkan, tetapi pencairan tidak diblokir bila saldo ledger kurang karena biaya transfer ditanggung platform dan setoran modal belum dicatat sistem.

@@ -1,4 +1,5 @@
 "use client";
+import { RentalReviewForm } from "./trust-user";
 import Link from "next/link";
 import { useState, useRef } from "react";
 import type { rentalList } from "@/src/services/rental-service";
@@ -627,6 +628,7 @@ function RentalPanel({ id }: { id: string }) {
       )}
       <PhotoGallery data={data} />
       <PayoutList data={data} />
+      {(owner || renter) && <RentalReviewForm id={r.id} />}
       <Card className="min-w-0">
         <h3 className="text-xl">Riwayat transaksi</h3>
         <RentalTimeline data={data} />

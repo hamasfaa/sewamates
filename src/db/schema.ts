@@ -75,6 +75,9 @@ export const users = pgTable("users", {
   termsAcceptedAt: timestamp("terms_accepted_at", { withTimezone: true }),
   termsVersion: text("terms_version"),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  suspendedAt: timestamp("suspended_at", { withTimezone: true }),
+  suspensionReason: text("suspension_reason"),
+  strikeReviewedAt: timestamp("strike_reviewed_at", { withTimezone: true }),
   createdAt: created(),
   updatedAt: updated(),
 });
@@ -88,6 +91,7 @@ export const identityVerifications = pgTable(
     cardType: text("card_type", { enum: ["ktm", "ktp"] }).notNull(),
     cardPhotoPath: text("card_photo_path").notNull(),
     selfiePath: text("selfie_path").notNull(),
+    purgedAt: timestamp("purged_at", { withTimezone: true }),
     status: identityStatus().notNull().default("menunggu"),
     rejectReason: text("reject_reason"),
     reviewedBy: uuid("reviewed_by").references(() => users.id),
@@ -450,6 +454,7 @@ export const messages = pgTable("messages", {
   type: text().notNull(),
   body: text().notNull().default(""),
   imagePath: text("image_path"),
+  hiddenAt: timestamp("hidden_at", { withTimezone: true }),
   createdAt: created(),
 });
 export const userBlocks = pgTable(
@@ -473,6 +478,11 @@ export const reports = pgTable("reports", {
   targetType: text("target_type").notNull(),
   targetId: uuid("target_id").notNull(),
   reason: text().notNull(),
+  note: text(),
+  actionTaken: text("action_taken"),
+  handledBy: uuid("handled_by").references(() => users.id),
+  handledAt: timestamp("handled_at", { withTimezone: true }),
+  decisionNote: text("decision_note"),
   status: text().notNull().default("menunggu"),
   createdAt: created(),
 });
@@ -524,6 +534,9 @@ export const payoutTasks = pgTable("payout_tasks", {
     .unique()
     .references(() => payments.id),
   kind: text().notNull(),
+  adjustmentOf: uuid("adjustment_of").references((): AnyPgColumn => payoutTasks.id),
+  adjustmentReason: text("adjustment_reason"),
+  createdBy: uuid("created_by").references(() => users.id),
   amount: bigint({ mode: "number" }).notNull(),
   accountSnapshot: jsonb("account_snapshot").notNull().$type<Record<string, unknown>>(),
   status: text({ enum: ["menunggu", "diklaim", "selesai"] })
@@ -678,6 +691,9 @@ export const strikes = pgTable(
     }).notNull(),
     rentalId: uuid("rental_id").references(() => rentals.id),
     givenBy: uuid("given_by").references(() => users.id),
+    reportId: uuid("report_id")
+      .unique()
+      .references(() => reports.id),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     createdAt: created(),
   },
@@ -713,3 +729,60 @@ export const deliveryThrottles = pgTable("delivery_throttles", {
   key: text().primaryKey(),
   nextAt: timestamp("next_at", { withTimezone: true }).notNull(),
 });
+
+export const disputeResponses = pgTable(
+  "dispute_responses",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    disputeId: uuid("dispute_id")
+      .notNull()
+      .references(() => disputes.id),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    body: text().notNull(),
+    createdAt: created(),
+  },
+  (t) => [uniqueIndex("one_dispute_response").on(t.disputeId, t.userId)],
+);
+export const reviews = pgTable(
+  "reviews",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    rentalId: uuid("rental_id")
+      .notNull()
+      .references(() => rentals.id),
+    reviewerId: uuid("reviewer_id")
+      .notNull()
+      .references(() => users.id),
+    revieweeId: uuid("reviewee_id")
+      .notNull()
+      .references(() => users.id),
+    score: integer().notNull(),
+    tags: text().array().notNull().default([]),
+    comment: text().notNull().default(""),
+    visibleAt: timestamp("visible_at", { withTimezone: true }),
+    hiddenAt: timestamp("hidden_at", { withTimezone: true }),
+    createdAt: created(),
+    updatedAt: updated(),
+  },
+  (t) => [uniqueIndex("one_rental_review").on(t.rentalId, t.reviewerId)],
+);
+export const reconciliations = pgTable(
+  "reconciliations",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    date: text().notNull(),
+    platformAccountId: uuid("platform_account_id")
+      .notNull()
+      .references(() => platformAccounts.id),
+    actualBalance: bigint("actual_balance", { mode: "number" }).notNull(),
+    ledgerBalance: bigint("ledger_balance", { mode: "number" }).notNull(),
+    note: text().notNull().default(""),
+    enteredBy: uuid("entered_by")
+      .notNull()
+      .references(() => users.id),
+    createdAt: created(),
+  },
+  (t) => [uniqueIndex("one_daily_reconciliation").on(t.date, t.platformAccountId)],
+);

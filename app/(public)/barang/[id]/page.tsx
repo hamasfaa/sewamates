@@ -10,7 +10,6 @@ import {
   ChevronRight,
   Clock3,
   MapPin,
-  MessageSquareText,
   Star,
   UserRound,
 } from "lucide-react";
@@ -28,6 +27,7 @@ import {
 } from "@/src/components/item-detail-panels";
 import { Card } from "@/src/components/ui/card";
 import { ItemStatusChip, VerificationChip } from "@/src/components/ui/status-chip";
+import { PublicReviews, ReportControl } from "@/src/components/trust-user";
 
 const load = cache(async (id: string) => {
   if (!z.uuid().safeParse(id).success || !process.env.DATABASE_URL) return null;
@@ -233,10 +233,10 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
           </section>
           <section>
             <h2 className="mb-3 text-lg">Ulasan</h2>
-            <div className="flex items-center gap-3 rounded-2xl border border-dashed border-border p-5 text-sm text-muted-foreground">
-              <MessageSquareText size={22} className="shrink-0 text-primary" aria-hidden />
-              Belum ada ulasan untuk barang ini. Ulasan muncul setelah transaksi selesai.
-            </div>
+            <PublicReviews type="items" id={detail.id} viewerId={data.viewer?.id} />
+            {data.viewer && data.viewer.id !== detail.owner.id && (
+              <ReportControl type="item" id={detail.id} />
+            )}
           </section>
           {detail.owner.verificationStatus === "terverifikasi" && (
             <p className="flex items-center gap-2 text-xs text-muted-foreground">

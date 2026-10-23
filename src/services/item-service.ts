@@ -15,6 +15,7 @@ import {
   type User,
 } from "@/src/db/schema";
 import { mutation } from "@/src/db/mutation";
+import { lockAccountActivity } from "./account-activity";
 import {
   addDays,
   blockedDays,
@@ -239,6 +240,7 @@ export async function createItem(db: Database, user: User, raw: unknown, key?: s
   assertItemPhotoPaths(user.id, paths);
   await verifyItemPhotos(paths);
   return mutation(db, user.id, "item:create", key, input, async (tx) => {
+    await lockAccountActivity(tx, [user.id]);
     const [owner] = await tx.select().from(users).where(eq(users.id, user.id)).for("update");
     requireActive(owner);
     requireOnboarded(owner);
@@ -298,6 +300,7 @@ export async function updateItem(db: Database, user: User, id: string, raw: unkn
   assertItemPhotoPaths(user.id, fresh);
   await verifyItemPhotos(fresh);
   return mutation(db, user.id, `item:update:${id}`, key, input, async (tx) => {
+    await lockAccountActivity(tx, [user.id]);
     const item = await ownedItem(tx, user.id, id, true);
     const [owner] = await tx.select().from(users).where(eq(users.id, user.id));
     requireActive(owner);

@@ -8,6 +8,7 @@ import {
   notifications,
   payments,
   payoutTasks,
+  reports,
   users,
   type User,
 } from "@/src/db/schema";
@@ -47,7 +48,7 @@ export async function verificationQueue(db: Executor, actor: User) {
     })
     .from(identityVerifications)
     .innerJoin(users, eq(users.id, identityVerifications.userId))
-    .where(eq(identityVerifications.status, "menunggu"))
+    .where(and(eq(identityVerifications.status, "menunggu"), ne(users.accountStatus, "dihapus")))
     .orderBy(asc(identityVerifications.createdAt))
     .limit(100);
 }
@@ -101,7 +102,13 @@ export async function decideVerification(
       "Minta admin lain memeriksa identitasmu.",
       403,
     );
-    await tx.select().from(users).where(eq(users.id, entry.userId)).for("update");
+    const [person] = await tx.select().from(users).where(eq(users.id, entry.userId)).for("update");
+    assert(
+      person.accountStatus !== "dihapus",
+      "ACCOUNT_UNAVAILABLE",
+      "Pengguna sudah menghapus akun.",
+      409,
+    );
     const [saved] = await tx
       .update(identityVerifications)
       .set({
@@ -149,7 +156,8 @@ export async function adminSummary(db: Executor, actor: User) {
       overdue: sql<number>`count(*) filter (where ${identityVerifications.createdAt} < ${new Date(Date.now() - rules.identity_sla_hours * 3600000)})::int`,
     })
     .from(identityVerifications)
-    .where(eq(identityVerifications.status, "menunggu"));
+    .innerJoin(users, eq(users.id, identityVerifications.userId))
+    .where(and(eq(identityVerifications.status, "menunggu"), ne(users.accountStatus, "dihapus")));
   const [listings] = await db
     .select({
       pending: sql<number>`count(*)::int`,
@@ -178,8 +186,18 @@ export async function adminSummary(db: Executor, actor: User) {
     })
     .from(disputes)
     .where(eq(disputes.status, "dibuka"));
+  const [{ reportsPending }] = await db
+    .select({ reportsPending: sql<number>`count(*)::int` })
+    .from(reports)
+    .where(eq(reports.status, "menunggu"));
+  const [{ usersSuspended }] = await db
+    .select({ usersSuspended: sql<number>`count(*)::int` })
+    .from(users)
+    .where(eq(users.accountStatus, "ditangguhkan"));
   return {
     ...result,
+    reportsPending,
+    usersSuspended,
     listingsPending: listings.pending,
     listingsOverdue: listings.overdue,
     paymentsPending: paymentCounts.pending,

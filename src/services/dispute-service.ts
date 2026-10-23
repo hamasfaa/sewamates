@@ -3,6 +3,7 @@ import type { Database, Executor } from "@/src/db";
 import {
   adminAuditLogs,
   disputeEvidence,
+  disputeResponses,
   disputes,
   handoverPhotos,
   handoverRecords,
@@ -19,7 +20,20 @@ import { disputeInput, evidenceInput } from "@/src/lib/transaction-validation";
 import { claimUploads, evidencePreview, inspectEvidence } from "@/src/lib/storage";
 import type { RentalStatus } from "@/src/domain/rental-state-machine";
 import { requireAdmin } from "./admin-service";
-import { lockRental, participantRental, transitionRental } from "./rental-service";
+import {
+  assertAvailable,
+  lockRental,
+  participantRental,
+  periodSql,
+  transitionRental,
+  type RentalPatch,
+} from "./rental-service";
+import { pickupPoints } from "@/src/db/schema";
+import { rentalPeriod, withinPickupHours } from "@/src/domain/availability";
+import { disputeDecisionInput, disputeResponseInput } from "@/src/lib/trust-validation";
+import { lateFee, splitIsValid } from "@/src/domain/payout";
+import { settleRental } from "./settlement-service";
+import { giveStrike } from "./strike-service";
 import { notify, notifyAdmins } from "./notification-service";
 import { presentMessages } from "./chat-service";
 import { disputeView } from "./rental-progress";
@@ -207,6 +221,12 @@ export async function addDisputeEvidence(
       "Sengketa sudah diputuskan. Bukti baru tidak dapat ditambahkan.",
       409,
     );
+    assert(
+      dispute.respondBy > new Date(),
+      "RESPONSE_CLOSED",
+      "Batas pengiriman bukti sengketa sudah berakhir.",
+      409,
+    );
     await attachEvidence(tx, rental, dispute.id, actor.id, input.paths, input.note);
     await tx.insert(rentalEvents).values({
       rentalId: rental.id,
@@ -250,7 +270,6 @@ export async function disputeQueue(db: Executor, actor: User) {
     .orderBy(asc(disputes.decideBy), asc(disputes.id))
     .limit(100);
 }
-// Read-only for Sprint 4; the decision form (F24) follows in Sprint 5.
 export async function disputeDetail(db: Database, actor: User, id: string) {
   requireAdmin(actor);
   const [row] = await db
@@ -312,7 +331,10 @@ export async function disputeDetail(db: Database, actor: User, id: string) {
       uniqueCode: rental.uniqueCode,
       amountReceived: rental.amountReceived,
       commissionAmount: rental.commissionAmount,
-      lateFee: rental.lateFee,
+      lateFee: rental.returnedAt
+        ? rental.lateFee
+        : lateFee(rental, rental.lateUntil ?? new Date(), rental.rulesSnapshot),
+      version: rental.version,
     },
     people,
     photos: await Promise.all(
@@ -324,5 +346,254 @@ export async function disputeDetail(db: Database, actor: User, id: string) {
     ),
     history,
     messages: await presentMessages(chat.reverse(), true),
+    self: [rental.ownerId, rental.renterId].includes(actor.id),
   };
+}
+
+export async function respondDispute(
+  db: Database,
+  actor: User,
+  id: string,
+  raw: unknown,
+  key?: string,
+) {
+  const input = disputeResponseInput.parse(raw);
+  const [ref] = await db.select().from(disputes).where(eq(disputes.id, id));
+  assert(ref, "NOT_FOUND", "Sengketa tidak ditemukan.", 404);
+  await participantRental(db, actor, ref.rentalId);
+  await inspectDisputeFiles(actor.id, input.paths);
+  return mutation(db, actor.id, `dispute:${id}:respond`, key, input, async (tx) => {
+    const rental = await lockRental(tx, ref.rentalId);
+    const [d] = await tx.select().from(disputes).where(eq(disputes.id, id)).for("update");
+    assert(
+      d.status === "dibuka" && d.respondBy > new Date(),
+      "RESPONSE_CLOSED",
+      "Batas tanggapan sengketa sudah berakhir.",
+      409,
+    );
+    assert(d.openedBy !== actor.id, "FORBIDDEN", "Tanggapan diberikan oleh pihak lawan.", 403);
+    const [existing] = await tx
+      .select()
+      .from(disputeResponses)
+      .where(and(eq(disputeResponses.disputeId, id), eq(disputeResponses.userId, actor.id)));
+    assert(
+      !existing,
+      "RESPONSE_EXISTS",
+      "Tanggapan sudah dikirim. Tambahkan bukti jika diperlukan.",
+      409,
+    );
+    await tx.insert(disputeResponses).values({ disputeId: id, userId: actor.id, body: input.body });
+    await attachEvidence(tx, rental, id, actor.id, input.paths);
+    await tx.insert(rentalEvents).values({
+      rentalId: rental.id,
+      fromStatus: rental.status,
+      toStatus: rental.status,
+      actorId: actor.id,
+      actorType: "user",
+      meta: { action: "dispute_responded", disputeId: id },
+    });
+    const other = actor.id === rental.ownerId ? rental.renterId : rental.ownerId;
+    await notify(
+      tx,
+      other,
+      "dispute_responded",
+      "Sengketa ditanggapi",
+      `${rental.publicCode}: tanggapan pihak lain tersedia.`,
+      `/transaksi/${rental.id}`,
+    );
+    await notifyAdmins(
+      tx,
+      "Tanggapan sengketa",
+      `${rental.publicCode}: tanggapan dan bukti siap diperiksa.`,
+      "/admin/sengketa",
+    );
+    return { id, status: "ditanggapi" };
+  });
+}
+export async function decideDispute(
+  db: Database,
+  actor: User,
+  id: string,
+  raw: unknown,
+  key?: string,
+) {
+  requireAdmin(actor);
+  const input = disputeDecisionInput.parse(raw);
+  return mutation(db, actor.id, `dispute:${id}:decision`, key, input, async (tx) => {
+    const [ref] = await tx.select().from(disputes).where(eq(disputes.id, id));
+    assert(ref, "NOT_FOUND", "Sengketa tidak ditemukan.", 404);
+    const rental = await lockRental(tx, ref.rentalId);
+    const [d] = await tx.select().from(disputes).where(eq(disputes.id, id)).for("update");
+    assert(
+      ![rental.ownerId, rental.renterId].includes(actor.id),
+      "SELF_REVIEW_FORBIDDEN",
+      "Minta admin lain memutuskan sengketa transaksimu.",
+      403,
+    );
+    assert(
+      d.status === "dibuka" && rental.status === "SENGKETA" && rental.version === input.version,
+      "DISPUTE_CHANGED",
+      "Sengketa berubah atau sudah diputuskan. Muat ulang.",
+      409,
+    );
+    assert(
+      !input.strikeUserId || [rental.ownerId, rental.renterId].includes(input.strikeUserId),
+      "INVALID_PARTY",
+      "Strike hanya untuk pihak transaksi.",
+      422,
+    );
+    let to: RentalStatus,
+      patch: RentalPatch = { statusBeforeDispute: null };
+    const commission = input.outcome === "bagi_dana" ? rental.commissionAmount : 0;
+    if (input.outcome === "lanjutkan") {
+      assert(
+        d.openedFromStatus === "DIBAYAR" || d.openedFromStatus === "BERJALAN",
+        "INVALID_OUTCOME",
+        "Transaksi yang sudah dikembalikan tidak dapat dilanjutkan.",
+        422,
+      );
+      assert(
+        input.ownerAmount === 0 && input.renterAmount === 0,
+        "INVALID_SPLIT",
+        "Melanjutkan transaksi tidak membagi dana.",
+        422,
+      );
+      to = d.openedFromStatus;
+      assert(
+        to === "DIBAYAR" || !input.newStartAt,
+        "INVALID_SCHEDULE",
+        "Jadwal sewa berjalan tidak dapat diperpanjang melalui putusan sengketa.",
+        422,
+      );
+      let start = rental.startAt,
+        end = new Date(
+          rental.dueAt.getTime() + rental.rulesSnapshot.availability_buffer_hours * 3600000,
+        );
+      if (to === "DIBAYAR") {
+        assert(
+          rental.rescheduleCount < rental.rulesSnapshot.reschedule_max,
+          "RESCHEDULE_LIMIT",
+          "Batas jadwal ulang transaksi sudah tercapai. Pilih putusan batal dengan pembagian dana.",
+          409,
+        );
+        assert(input.newStartAt, "SCHEDULE_REQUIRED", "Jadwal serah terima baru wajib diisi.", 422);
+        start = new Date(input.newStartAt);
+        assert(
+          start.getTime() !== rental.startAt.getTime(),
+          "SAME_SCHEDULE",
+          "Pilih jadwal yang berbeda dari jadwal sebelumnya.",
+          422,
+        );
+        assert(
+          start.getTime() > Date.now() + 15 * 60000 &&
+            start.getTime() <= Date.now() + rental.rulesSnapshot.booking_max_days * 86400000,
+          "INVALID_SCHEDULE",
+          "Jadwal baru minimal 15 menit dari sekarang dan dalam batas pemesanan.",
+          422,
+        );
+        const [point] = await tx
+          .select()
+          .from(pickupPoints)
+          .where(eq(pickupPoints.id, rental.pickupPointId));
+        assert(
+          point && withinPickupHours(start, point.hours),
+          "POINT_CLOSED",
+          "Pilih jadwal dalam jam operasional titik.",
+          422,
+        );
+        const schedule = rentalPeriod(
+          start,
+          rental.days,
+          rental.rulesSnapshot.availability_buffer_hours,
+        );
+        end = schedule.period.end;
+        patch = {
+          ...patch,
+          startAt: start,
+          dueAt: schedule.due,
+          blockPeriod: periodSql(start, end),
+          rescheduleCount: rental.rescheduleCount + 1,
+        };
+        await tx
+          .update(handoverRecords)
+          .set({
+            ownerArrivedAt: null,
+            renterArrivedAt: null,
+            ownerLocation: null,
+            renterLocation: null,
+            photosConfirmedAt: null,
+            codeHash: null,
+            codeIssuedAt: null,
+            codeFailedAttempts: 0,
+            codeLockedUntil: null,
+          })
+          .where(and(eq(handoverRecords.rentalId, rental.id), eq(handoverRecords.type, "start")));
+      }
+      await assertAvailable(tx, rental.itemId, start, end, rental.id);
+    } else {
+      assert(
+        input.outcome === "batal"
+          ? d.openedFromStatus === "DIBAYAR"
+          : ["BERJALAN", "DIKEMBALIKAN"].includes(d.openedFromStatus),
+        "INVALID_OUTCOME",
+        "Jenis putusan tidak sesuai tahap sengketa.",
+        422,
+      );
+      assert(
+        !input.newStartAt,
+        "INVALID_SCHEDULE",
+        "Jadwal baru hanya untuk putusan lanjutkan.",
+        422,
+      );
+      const split = { owner: input.ownerAmount, renter: input.renterAmount, commission };
+      assert(
+        splitIsValid(split, rental.amountReceived),
+        "INVALID_SPLIT",
+        "Bagian pemilik + penyewa + komisi harus sama dengan dana diterima.",
+        422,
+      );
+      to = input.outcome === "batal" ? "DIBATALKAN" : "PENCAIRAN_DIPROSES";
+      await settleRental(tx, rental, "putusan", split);
+    }
+    await tx
+      .update(disputes)
+      .set({
+        status: "diputuskan",
+        outcome: input.outcome,
+        ownerAmount: input.ownerAmount,
+        renterAmount: input.renterAmount,
+        commissionAmount: commission,
+        newStartAt: input.newStartAt ? new Date(input.newStartAt) : null,
+        decisionNote: input.reason,
+        decidedBy: actor.id,
+        decidedAt: new Date(),
+      })
+      .where(eq(disputes.id, id));
+    const next = await transitionRental(
+      tx,
+      rental,
+      to,
+      { id: actor.id, type: "admin" },
+      { action: "dispute_decided", disputeId: id, outcome: input.outcome },
+      patch,
+    );
+    if (input.strikeUserId) await giveStrike(tx, input.strikeUserId, "sengketa", rental, actor.id);
+    await tx.insert(adminAuditLogs).values({
+      adminId: actor.id,
+      action: "dispute_decided",
+      targetType: "disputes",
+      targetId: id,
+      meta: input,
+    });
+    for (const userId of [rental.ownerId, rental.renterId])
+      await notify(
+        tx,
+        userId,
+        "dispute_decided",
+        "Sengketa sudah diputuskan",
+        `${rental.publicCode}: ${input.outcome.replaceAll("_", " ")}. ${input.reason}`,
+        `/transaksi/${rental.id}`,
+      );
+    return { id, status: next.status, version: next.version };
+  });
 }
