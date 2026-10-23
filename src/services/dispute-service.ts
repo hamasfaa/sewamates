@@ -278,6 +278,7 @@ export async function disputeDetail(db: Database, actor: User, id: string) {
       path: handoverPhotos.path,
       source: handoverPhotos.source,
       receivedAt: handoverPhotos.receivedAt,
+      rescheduleCount: handoverPhotos.rescheduleCount,
     })
     .from(handoverPhotos)
     .innerJoin(handoverRecords, eq(handoverRecords.id, handoverPhotos.handoverId))
@@ -315,7 +316,11 @@ export async function disputeDetail(db: Database, actor: User, id: string) {
     },
     people,
     photos: await Promise.all(
-      photos.map(async ({ path, ...photo }) => ({ ...photo, url: await evidencePreview(path) })),
+      photos.map(async ({ path, rescheduleCount, ...photo }) => ({
+        ...photo,
+        currentSchedule: rescheduleCount === rental.rescheduleCount,
+        url: await evidencePreview(path),
+      })),
     ),
     history,
     messages: await presentMessages(chat.reverse(), true),

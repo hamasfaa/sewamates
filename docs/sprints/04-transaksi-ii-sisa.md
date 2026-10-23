@@ -12,7 +12,7 @@ Per 23 Oktober 2026. Implementasi dan hasil tes lokal ada di [Sprint 4 — Trans
 ## 2. Langkah lingkungan bersama
 
 - [x] Commit kode Sprint 4 (`efecd88`). Pembaruan dokumen bagian 1 belum di-commit.
-- [ ] Pastikan target `.env.local` benar, lalu terapkan migrasi `0008` dengan `npm run db:migrate` ke dev/staging.
+- [ ] Pastikan target `.env.local` benar, lalu terapkan migrasi sampai `0009` dengan `npm run db:migrate` ke dev/staging. `0009` diperlukan untuk memisahkan foto setiap jadwal setelah perbaikan audit; tidak mengubah isi berkas foto lama.
 - [ ] Jalankan ulang [supabase/jobs.sql](../../supabase/jobs.sql). Periksa ada 10 job `sewamates-*` di `cron.job` dan setiap job mendapat HTTP 200 di `net._http_response`.
 - [ ] Deploy kode ke URL HTTPS setelah migrasi.
 

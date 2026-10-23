@@ -121,6 +121,7 @@ export async function rentalProgress(
                 uploadedBy: photo.uploadedBy,
                 source: photo.source,
                 receivedAt: photo.receivedAt,
+                currentSchedule: photo.rescheduleCount === rental.rescheduleCount,
                 url: await evidencePreview(photo.path),
               })),
           ),
@@ -181,8 +182,12 @@ export async function rentalProgress(
     shooter = phase ? photographer(phase) : null,
     shooterId = shooter === "owner" ? rental.ownerId : rental.renterId,
     shooterPhotos = record
-      ? photos.filter((photo) => photo.handoverId === record.id && photo.uploadedBy === shooterId)
-          .length
+      ? photos.filter(
+          (photo) =>
+            photo.handoverId === record.id &&
+            photo.uploadedBy === shooterId &&
+            photo.rescheduleCount === rental.rescheduleCount,
+        ).length
       : 0,
     noShowAt = phase && scheduled ? noShowOpensAt(scheduled, rules) : null,
     pendingNoShow = noShows.find((report) => report.status === "menunggu"),

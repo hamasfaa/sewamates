@@ -2,7 +2,7 @@
 
 Web sewa barang antar mahasiswa, dibangun dengan Next.js App Router, TypeScript, Tailwind CSS, komponen pola shadcn/ui, Drizzle, PostgreSQL/Supabase, dan grammY. Spesifikasi PM ada di [docs](docs/README.md).
 
-**Lingkup saat ini: Sprint 4 — Transaksi II.** Selain pengajuan, pembayaran manual, chat, dan notifikasi Telegram dari [Sprint 3](docs/sprints/03-transaksi-i.md), tersedia serah terima dan pengembalian dari HP (kamera, kode/QR), masa cek, denda telat, pembatalan sesuai tabel A-3.6, jadwal ulang, laporan tidak hadir, pembukaan sengketa, strike, serta antrean pencairan dan kas admin. Lihat [Sprint 4](docs/sprints/04-transaksi-ii.md) untuk migrasi sampai `0008`, 10 job terjadwal, dan hasil tes. Putusan sengketa dan rating mengikuti Sprint 5.
+**Lingkup saat ini: Sprint 4 — Transaksi II.** Selain pengajuan, pembayaran manual, chat, dan notifikasi Telegram dari [Sprint 3](docs/sprints/03-transaksi-i.md), tersedia serah terima dan pengembalian dari HP (kamera, kode/QR), masa cek, denda telat, pembatalan sesuai tabel A-3.6, jadwal ulang, laporan tidak hadir, pembukaan sengketa, strike, serta antrean pencairan dan kas admin. Lihat [Sprint 4](docs/sprints/04-transaksi-ii.md) untuk migrasi sampai `0009`, 10 job terjadwal, dan hasil tes. Putusan sengketa dan rating mengikuti Sprint 5.
 
 ## Menjalankan aplikasi
 

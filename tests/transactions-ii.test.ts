@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { and, eq, inArray, sql } from "drizzle-orm";
+import { readFile } from "node:fs/promises";
 import type { Database } from "@/src/db";
 import * as s from "@/src/db/schema";
 import { campusId, resetDatabase, testDatabase, user } from "./helpers/database";
@@ -54,9 +55,9 @@ vi.mock("@supabase/supabase-js", () => ({
   }),
 }));
 vi.mock("@/src/services/telegram-api", () => ({ telegramApi: () => mocks }));
-let db: Database, close: () => Promise<void>;
+let db: Database, close: () => Promise<void>, execRaw: (source: string) => Promise<unknown>;
 beforeAll(async () => {
-  ({ db, close } = await testDatabase());
+  ({ db, close, execRaw } = await testDatabase());
 });
 afterAll(async () => {
   await close?.();
@@ -354,6 +355,134 @@ describe("serah terima, pengembalian, dan pencairan", () => {
         .set({ source: "camera" })
         .where(sql`true`),
     ).rejects.toThrow();
+  });
+  it("jadwal baru wajib foto baru; arsip, batas foto per jadwal, dan pengembalian tetap berlaku", async () => {
+    const f = await setup(),
+      rental = await paid(f);
+    const meet = async () => {
+      await moveSchedule(rental.id, new Date(Date.now() + 10 * MINUTE));
+      await arrive(db, f.owner, rental.id, {});
+      await arrive(db, f.renter, rental.id, {});
+    };
+    await meet();
+    for (let i = 0; i < 8; i++) await photo(f.renter, rental.id);
+    let { code } = await issueHandoverCode(db, f.renter, rental.id);
+    const oldPhotos = (await rentalDetail(db, f.renter, rental.id)).handover.start!.photos;
+    const rejected = await proposeReschedule(db, f.renter, rental.id, {
+      version: (await getRental(rental.id)).version,
+      startAt: f.start.toISOString(),
+    });
+    await respondReschedule(db, f.owner, rental.id, rejected.id, {
+      version: rejected.version,
+      decision: "ditolak",
+    });
+    expect((await rentalDetail(db, f.renter, rental.id)).actions.shooterPhotos).toBe(8);
+
+    for (const revision of [1, 2]) {
+      const request = await proposeReschedule(db, f.renter, rental.id, {
+        version: (await getRental(rental.id)).version,
+        startAt: new Date(f.start.getTime() + (revision - 1) * 86400000).toISOString(),
+      });
+      await respondReschedule(db, f.owner, rental.id, request.id, {
+        version: request.version,
+        decision: "disetujui",
+      });
+      let detail = await rentalDetail(db, f.renter, rental.id);
+      expect(detail.handover.start).toMatchObject({ ownerArrivedAt: null, renterArrivedAt: null });
+      expect(detail.actions).toMatchObject({ shooterPhotos: 0, canShowCode: false });
+      expect(detail.handover.start!.photos.every((photo) => !photo.currentSchedule)).toBe(true);
+      await meet();
+      await expect(issueHandoverCode(db, f.renter, rental.id)).rejects.toMatchObject({
+        code: "PHOTOS_REQUIRED",
+      });
+      await expect(
+        confirmHandover(db, f.owner, rental.id, { code, photosConfirmed: true }),
+      ).rejects.toMatchObject({ code: "PHOTOS_REQUIRED" });
+      await photo(f.renter, rental.id);
+      await expect(issueHandoverCode(db, f.renter, rental.id)).rejects.toMatchObject({
+        code: "PHOTOS_REQUIRED",
+      });
+      await photo(f.renter, rental.id, "gallery");
+      detail = await rentalDetail(db, f.renter, rental.id);
+      expect(detail.actions).toMatchObject({ shooterPhotos: 2, canShowCode: true });
+      expect(detail.handover.start!.photos.filter((photo) => photo.currentSchedule)).toHaveLength(
+        2,
+      );
+      expect(detail.handover.start!.photos.slice(0, 8)).toEqual(
+        oldPhotos.map((photo) => ({ ...photo, currentSchedule: false })),
+      );
+      ({ code } = await issueHandoverCode(db, f.renter, rental.id));
+    }
+    await confirmHandover(db, f.owner, rental.id, { code, photosConfirmed: true });
+    await giveBack(f, rental.id);
+    const detail = await rentalDetail(db, f.renter, rental.id);
+    expect(detail.rental.status).toBe("DIKEMBALIKAN");
+    expect(detail.handover.end!.photos).toHaveLength(2);
+    expect(detail.handover.end!.photos.every((photo) => photo.currentSchedule)).toBe(true);
+    await expect(
+      db
+        .update(s.handoverPhotos)
+        .set({ rescheduleCount: 2 })
+        .where(sql`true`),
+    ).rejects.toThrow();
+  });
+  it("migrasi foto lama mengenali jadwal disetujui tanpa mengubah atau membuka bukti", async () => {
+    const f = await setup(),
+      rental = await paid(f);
+    await moveSchedule(rental.id, new Date(Date.now() + 10 * MINUTE));
+    await arrive(db, f.renter, rental.id, {});
+    const request = await proposeReschedule(db, f.renter, rental.id, {
+      version: (await getRental(rental.id)).version,
+      startAt: f.start.toISOString(),
+    });
+    await respondReschedule(db, f.owner, rental.id, request.id, {
+      version: request.version,
+      decision: "disetujui",
+    });
+    const [accepted] = await db
+      .select()
+      .from(s.rescheduleRequests)
+      .where(eq(s.rescheduleRequests.id, request.id));
+    const [record] = await db
+      .select()
+      .from(s.handoverRecords)
+      .where(eq(s.handoverRecords.rentalId, rental.id));
+    const received = accepted.respondedAt!;
+    await db.insert(s.rescheduleRequests).values({
+      rentalId: rental.id,
+      proposedBy: f.owner.id,
+      newStartAt: f.start,
+      status: "ditolak",
+      respondedAt: new Date(received.getTime() - 2 * H),
+    });
+    const photos = await db
+      .insert(s.handoverPhotos)
+      .values(
+        [-H, 0, H].map((offset) => ({
+          handoverId: record.id,
+          uploadedBy: f.renter.id,
+          path: `${f.renter.id}/handover_photo/${crypto.randomUUID()}.png`,
+          source: "gallery" as const,
+          receivedAt: new Date(received.getTime() + offset),
+        })),
+      )
+      .returning();
+    // Recreate the pre-0009 shape with existing evidence, then run the actual migration.
+    await db.execute(sql`ALTER TABLE handover_photos DROP COLUMN reschedule_count`);
+    const migration = await readFile(
+      "supabase/migrations/0009_handover_photo_schedule.sql",
+      "utf8",
+    );
+    await execRaw(`BEGIN;\n${migration}\nCOMMIT;`);
+    for (const [index, photo] of photos.entries()) {
+      const [stored] = await db
+        .select()
+        .from(s.handoverPhotos)
+        .where(eq(s.handoverPhotos.id, photo.id));
+      expect(stored).toEqual({ ...photo, rescheduleCount: index === 2 ? 1 : 0 });
+    }
+    await expect(db.update(s.handoverPhotos).set({ source: "camera" })).rejects.toThrow();
+    await expect(db.delete(s.handoverPhotos)).rejects.toThrow();
   });
   it("telat 30 jam memotong deposit, memberi strike, dan masa cek habis mencairkan dana", async () => {
     const f = await setup(),

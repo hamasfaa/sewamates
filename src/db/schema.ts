@@ -593,6 +593,7 @@ export const handoverPhotos = pgTable("handover_photos", {
     .references(() => users.id),
   path: text().notNull().unique(),
   source: text({ enum: ["camera", "gallery"] }).notNull(),
+  rescheduleCount: integer("reschedule_count").notNull().default(0),
   receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
 });
 export const rescheduleRequests = pgTable("reschedule_requests", {

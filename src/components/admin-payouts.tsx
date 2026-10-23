@@ -2,7 +2,7 @@
 import { useId, useState } from "react";
 import { Lock } from "lucide-react";
 import { useClock, useLiveApi, type Wire } from "@/src/lib/live-api";
-import { api, useApi } from "@/src/lib/client-api";
+import { api } from "@/src/lib/client-api";
 import { acceptFor, uploadPrivateFile } from "@/src/lib/private-upload";
 import type { payoutDetail, payoutQueue } from "@/src/services/payout-service";
 import { dateWib, rupiah } from "@/src/lib/utils";
@@ -224,7 +224,7 @@ function PayoutReview({
 }) {
   const form = useId(),
     now = useClock(),
-    query = useApi<Detail>(`/api/admin/payout-tasks/${id}`),
+    query = useLiveApi<Detail>(`/api/admin/payout-tasks/${id}`, 5000),
     [source, setSource] = useState(""),
     [amount, setAmount] = useState(""),
     [fee, setFee] = useState("0"),
@@ -238,10 +238,10 @@ function PayoutReview({
     try {
       await work();
       await changed();
-      query.reload();
+      await query.refresh();
     } catch (error) {
       setError((error as Error).message);
-      query.reload();
+      await query.refresh();
     } finally {
       setBusy(false);
     }

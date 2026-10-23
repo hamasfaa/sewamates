@@ -2,7 +2,6 @@
 import { useState } from "react";
 import Image from "next/image";
 import { useClock, useLiveApi, type Wire } from "@/src/lib/live-api";
-import { useApi } from "@/src/lib/client-api";
 import type { disputeDetail, disputeQueue } from "@/src/services/dispute-service";
 import { DISPUTE_LABELS } from "@/src/domain/dispute";
 import { RENTAL_LABELS } from "@/src/domain/rental-state-machine";
@@ -70,7 +69,7 @@ export function AdminDisputes() {
   );
 }
 function DisputeReview({ id }: { id: string }) {
-  const query = useApi<Detail>(`/api/admin/disputes/${id}`);
+  const query = useLiveApi<Detail>(`/api/admin/disputes/${id}`, 5000);
   if (query.error)
     return (
       <Card>
@@ -137,6 +136,7 @@ function DisputeReview({ id }: { id: string }) {
                     <p className="mt-1 text-xs text-muted-foreground">
                       {dateWib(photo.receivedAt)}
                       {photo.source === "gallery" && " · dari galeri"}
+                      {!photo.currentSchedule && " · jadwal sebelumnya"}
                     </p>
                   </li>
                 ))}

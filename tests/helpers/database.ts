@@ -34,7 +34,7 @@ export async function testDatabase() {
     .filter((file) => file.endsWith(".sql"))
     .sort())
     await execRaw(await readFile(`supabase/migrations/${name}`, "utf8"));
-  return { db, close };
+  return { db, close, execRaw };
 }
 export const campusId = "00000000-0000-4000-8000-000000000001";
 let sequence = 0;

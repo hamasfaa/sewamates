@@ -4,6 +4,8 @@ Tanggal pengerjaan: 23 Oktober 2026. Dimulai setelah pemilik aplikasi menyatakan
 
 **Status: implementasi lokal tersedia dan lulus pemeriksaan otomatis. Migrasi `0008` belum diterapkan ke Supabase hosted, jadwal job baru belum dipasang, dan belum ada deployment.** Keputusan implementasi ada di [ADR 0005](../decisions/0005-transaksi-sprint-4.md). Daftar langkah yang belum dijalankan ada di [Sisa Sprint 4](04-transaksi-ii-sisa.md).
 
+Perbaikan setelah [audit browser](04-transaksi-ii-manual.md): migrasi `0009` memisahkan foto berdasarkan versi jadwal, dan detail pencairan/sengketa admin diperbarui otomatis setiap 5 detik. Terapkan migrasi sampai `0009` sebelum menjalankan kode terbaru. Foto lama tetap disimpan sebagai arsip.
+
 ## Implementasi
 
 | Backlog | Hasil |
@@ -49,7 +51,7 @@ POST /api/internal/jobs/<tujuh job Sprint 4>
 
 ## Penyiapan dev/staging
 
-1. Pastikan target database benar, lalu jalankan `npm run db:migrate` untuk menerapkan `0008`. Migrasi menandai bukti yang sudah punya tugas refund Sprint 3 sebagai sudah diselesaikan agar tidak direfund dua kali. Tidak ada env atau bucket baru; bukti baru memakai `evidence-private`.
+1. Pastikan target database benar, lalu jalankan `npm run db:migrate` untuk menerapkan migrasi sampai `0009`. Migrasi `0008` menandai bukti yang sudah punya tugas refund Sprint 3 sebagai sudah diselesaikan agar tidak direfund dua kali; `0009` menambah metadata versi jadwal foto tanpa menghapus arsip. Tidak ada env atau bucket baru; bukti baru memakai `evidence-private`.
 2. Jalankan ulang [supabase/jobs.sql](../../supabase/jobs.sql) di SQL Editor. File memasang **10 job** setiap menit (3 job lama + 7 job Sprint 4) dengan nama tetap, memakai secret Vault yang sama.
 3. Deploy kode setelah migrasi. Kamera dalam app memerlukan HTTPS (atau `localhost`); `Permissions-Policy` sudah mengizinkan `camera` dan `geolocation` untuk origin aplikasi. Browser tanpa izin kamera tetap bisa memakai galeri.
 4. Siapkan minimal dua rekening platform bila ingin menguji pemindahan kas, dan satu admin yang bukan peserta transaksi untuk mengklaim pencairan.

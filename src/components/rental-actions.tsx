@@ -638,6 +638,7 @@ export function PhotoGallery({ data }: { data: RentalDetail }) {
                   <p className="mt-1 text-xs text-muted-foreground">
                     {dateWib(photo.receivedAt)}
                     {photo.source === "gallery" && " · dari galeri"}
+                    {!photo.currentSchedule && " · jadwal sebelumnya"}
                   </p>
                 </li>
               ))}

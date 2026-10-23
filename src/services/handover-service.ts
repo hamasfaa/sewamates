@@ -85,12 +85,21 @@ function requireBothArrived(record: HandoverRecord) {
     409,
   );
 }
-async function photoCount(tx: Executor, handoverId: string, uploadedBy: string) {
+async function photoCount(
+  tx: Executor,
+  handoverId: string,
+  uploadedBy: string,
+  rescheduleCount: number,
+) {
   const [{ count }] = await tx
     .select({ count: sql<number>`count(*)::int` })
     .from(handoverPhotos)
     .where(
-      and(eq(handoverPhotos.handoverId, handoverId), eq(handoverPhotos.uploadedBy, uploadedBy)),
+      and(
+        eq(handoverPhotos.handoverId, handoverId),
+        eq(handoverPhotos.uploadedBy, uploadedBy),
+        eq(handoverPhotos.rescheduleCount, rescheduleCount),
+      ),
     );
   return count;
 }
@@ -171,7 +180,8 @@ export async function addHandoverPhoto(
     const record = await handoverRecord(tx, rental.id, phase);
     requireBothArrived(record);
     assert(
-      (await photoCount(tx, record.id, actor.id)) < HANDOVER_RULES.maxPhotos,
+      (await photoCount(tx, record.id, actor.id, rental.rescheduleCount)) <
+        HANDOVER_RULES.maxPhotos,
       "PHOTO_LIMIT",
       `Maksimal ${HANDOVER_RULES.maxPhotos} foto kondisi.`,
       422,
@@ -184,6 +194,7 @@ export async function addHandoverPhoto(
         uploadedBy: actor.id,
         path: input.path,
         source: input.source,
+        rescheduleCount: rental.rescheduleCount,
       })
       .returning();
     return { id: photo.id, source: photo.source, receivedAt: photo.receivedAt };
@@ -206,7 +217,8 @@ export async function issueHandoverCode(db: Database, actor: User, rentalId: str
     const record = await handoverRecord(tx, rental.id, phase);
     requireBothArrived(record);
     assert(
-      (await photoCount(tx, record.id, actor.id)) >= HANDOVER_RULES.minPhotos,
+      (await photoCount(tx, record.id, actor.id, rental.rescheduleCount)) >=
+        HANDOVER_RULES.minPhotos,
       "PHOTOS_REQUIRED",
       `Ambil minimal ${HANDOVER_RULES.minPhotos} foto kondisi barang terlebih dahulu.`,
       409,
@@ -253,8 +265,12 @@ export async function confirmHandover(
       const record = await handoverRecord(tx, rental.id, phase);
       requireBothArrived(record);
       assert(
-        (await photoCount(tx, record.id, partyId(rental, photographer(phase)))) >=
-          HANDOVER_RULES.minPhotos,
+        (await photoCount(
+          tx,
+          record.id,
+          partyId(rental, photographer(phase)),
+          rental.rescheduleCount,
+        )) >= HANDOVER_RULES.minPhotos,
         "PHOTOS_REQUIRED",
         phase === "start"
           ? `Penyewa perlu mengambil minimal ${HANDOVER_RULES.minPhotos} foto kondisi barang.`

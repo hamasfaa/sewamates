@@ -467,7 +467,9 @@ export function HandoverPanel({ data, refresh }: Props) {
     theirs = owner ? record?.renterArrivedAt : record?.ownerArrivedAt,
     shooterId = start ? r.renterId : r.ownerId,
     shooter = shooterId === (owner ? r.ownerId : r.renterId),
-    photos = record?.photos.filter((photo) => photo.uploadedBy === shooterId) ?? [],
+    photos =
+      record?.photos.filter((photo) => photo.uploadedBy === shooterId && photo.currentSchedule) ??
+      [],
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   async function run(work: () => Promise<unknown>) {
