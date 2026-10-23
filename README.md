@@ -2,7 +2,7 @@
 
 Web sewa barang antar mahasiswa, dibangun dengan Next.js App Router, TypeScript, Tailwind CSS, komponen pola shadcn/ui, Drizzle, PostgreSQL/Supabase, dan grammY. Spesifikasi PM ada di [docs](docs/README.md).
 
-**Lingkup saat ini: Sprint 3 — Transaksi I.** Pengajuan dan persetujuan sewa, pembayaran manual bertahap, verifikasi admin, chat privat, serta notifikasi Telegram berbasis event tersedia. Lihat [Sprint 3](docs/sprints/03-transaksi-i.md) untuk migrasi sampai `0007`, penyiapan rekening platform, webhook Telegram tanpa cron, job kedaluwarsa, dan hasil tes. Serah terima dan pelaksanaan pencairan mengikuti Sprint 4.
+**Lingkup saat ini: Sprint 4 — Transaksi II.** Selain pengajuan, pembayaran manual, chat, dan notifikasi Telegram dari [Sprint 3](docs/sprints/03-transaksi-i.md), tersedia serah terima dan pengembalian dari HP (kamera, kode/QR), masa cek, denda telat, pembatalan sesuai tabel A-3.6, jadwal ulang, laporan tidak hadir, pembukaan sengketa, strike, serta antrean pencairan dan kas admin. Lihat [Sprint 4](docs/sprints/04-transaksi-ii.md) untuk migrasi sampai `0008`, 10 job terjadwal, dan hasil tes. Putusan sengketa dan rating mengikuti Sprint 5.
 
 ## Menjalankan aplikasi
 
@@ -70,6 +70,6 @@ tests/                  unit, integrasi PostgreSQL, dan browser
 docs/                   spesifikasi PM, setup, ADR, dan status sprint
 ```
 
-API Sprint 1–3 mengikuti URL dokumen 04. Dispatch Route Handler mengarahkan request ke service lewat `marketplace-routes.ts` dan `transaction-routes.ts`; otorisasi dilakukan lagi di server. Semua mutasi browser wajib `Origin` yang sama dengan `NEXT_PUBLIC_APP_URL`. Mutasi profil, rekening, verifikasi, listing, blokir tanggal, keputusan admin, katalog, settings, pengajuan, pembayaran dan pengiriman chat mendukung `Idempotency-Key`; pemakaian ulang key dengan isi berbeda mendapat HTTP 409.
+API Sprint 1–4 mengikuti URL dokumen 04. Dispatch Route Handler mengarahkan request ke service lewat `marketplace-routes.ts` dan `transaction-routes.ts`; otorisasi dilakukan lagi di server. Semua mutasi browser wajib `Origin` yang sama dengan `NEXT_PUBLIC_APP_URL`. Mutasi profil, rekening, verifikasi, listing, blokir tanggal, keputusan admin, katalog, settings, pengajuan, pembayaran dan pengiriman chat mendukung `Idempotency-Key`; pemakaian ulang key dengan isi berbeda mendapat HTTP 409.
 
 CI berjalan saat pull request dan push ke `main`. Deployment staging mengikuti CI berhasil apabila GitHub environment `staging` memiliki secret Vercel. Database dimigrasikan secara terpisah sebelum deployment pertama; lihat panduan setup. Tidak ada deployment production pada Sprint 1.

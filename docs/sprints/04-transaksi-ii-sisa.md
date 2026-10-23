@@ -4,14 +4,14 @@ Per 23 Oktober 2026. Implementasi dan hasil tes lokal ada di [Sprint 4 — Trans
 
 ## 1. Pembaruan dokumen kecil
 
-- [ ] `docs/05-roadmap-dan-backlog.md`: ganti kalimat "Sprint 4 belum dimulai." dengan tautan ke [laporan Sprint 4](04-transaksi-ii.md) dan [ADR 0005](../decisions/0005-transaksi-sprint-4.md).
-- [ ] `docs/README.md`: tambahkan paragraf Sprint 4 pada bagian "Pelaksanaan sprint".
-- [ ] `README.md`: perbarui "Lingkup saat ini" menjadi Sprint 4, dengan migrasi sampai `0008` dan 10 job.
-- [ ] `docs/02-prd-fitur-mvp.md` (F15): ubah catatan kanal. Pengingat, pencairan, pembukaan sengketa, dan tugas lewat target tersedia sejak Sprint 4. Tanggapan dan putusan sengketa mengikuti Sprint 5.
+- [x] `docs/05-roadmap-dan-backlog.md`: status Sprint 4 dengan tautan ke [laporan Sprint 4](04-transaksi-ii.md) dan [ADR 0005](../decisions/0005-transaksi-sprint-4.md).
+- [x] `docs/README.md`: paragraf Sprint 4 pada bagian "Pelaksanaan sprint".
+- [x] `README.md`: "Lingkup saat ini" menjadi Sprint 4, dengan migrasi sampai `0008` dan 10 job.
+- [x] `docs/02-prd-fitur-mvp.md` (F15): catatan kanal Sprint 4 dan Sprint 5.
 
 ## 2. Langkah lingkungan bersama
 
-- [ ] Commit perubahan Sprint 4 (belum di-commit).
+- [x] Commit kode Sprint 4 (`efecd88`). Pembaruan dokumen bagian 1 belum di-commit.
 - [ ] Pastikan target `.env.local` benar, lalu terapkan migrasi `0008` dengan `npm run db:migrate` ke dev/staging.
 - [ ] Jalankan ulang [supabase/jobs.sql](../../supabase/jobs.sql). Periksa ada 10 job `sewamates-*` di `cron.job` dan setiap job mendapat HTTP 200 di `net._http_response`.
 - [ ] Deploy kode ke URL HTTPS setelah migrasi.

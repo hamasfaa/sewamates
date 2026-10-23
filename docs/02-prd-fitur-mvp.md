@@ -186,7 +186,7 @@ Semua aturan dan angka merujuk ke [01 – Alur & Aturan Sistem](01-alur-dan-atur
 | Laporan yang dikirim sudah ditangani | Pelapor | ✓ | – | – |
 | Tugas admin baru / lewat target | Semua admin | ✓ | ✓ (grup admin) | – |
 
-Nomor HP dari login memetakan akun ke chat Telegram yang tertaut. Notifikasi tugas admin dikirim hanya ke grup admin; notifikasi pribadi tetap mengikuti peran pemilik/penyewa pada transaksi tersebut. Pengingat, pencairan, sengketa, dan tugas lewat target mengikuti sprint implementasinya.
+Nomor HP dari login memetakan akun ke chat Telegram yang tertaut. Notifikasi tugas admin dikirim hanya ke grup admin; notifikasi pribadi tetap mengikuti peran pemilik/penyewa pada transaksi tersebut. Pengingat, jadwal ulang, laporan tidak hadir, keterlambatan, pencairan, pembukaan sengketa, strike, dan tugas lewat target tersedia sejak Sprint 4; tanggapan dan putusan sengketa mengikuti Sprint 5.
 
 - Pengguna dapat mematikan push untuk chat; notifikasi transaksi tidak bisa dimatikan.
 

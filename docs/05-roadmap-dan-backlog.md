@@ -71,7 +71,7 @@ ID fitur merujuk ke [02](02-prd-fitur-mvp.md); aturan ke [01](01-alur-dan-aturan
 - Job `expire-requests`, `expire-payments`; pengiriman Telegram melalui webhook event database tanpa cron.
 - Notifikasi Telegram (pesan + tombol "Buka di SewaMates") untuk kejadian Sprint 1–3; perintah `/transaksi` & `/bantuan`; notifikasi grup admin.
 
-Status implementasi, penyiapan migrasi sampai `0007`, dan bukti pemeriksaan tersedia di [Sprint 3 — Transaksi I](sprints/03-transaksi-i.md). [Audit kelengkapan dan penyelesaian 22 Oktober 2026](sprints/03-transaksi-i-audit.md) mencatat pelengkapan UI serta tiga cron kedaluwarsa yang sudah aktif dan diverifikasi HTTP 200. Gunakan [checklist pengujian manual](sprints/03-transaksi-i-e2e.md) sebelum menutup DoD lingkungan bersama. Sprint 4 belum dimulai.
+Status implementasi, penyiapan migrasi sampai `0007`, dan bukti pemeriksaan tersedia di [Sprint 3 — Transaksi I](sprints/03-transaksi-i.md). [Audit kelengkapan dan penyelesaian 22 Oktober 2026](sprints/03-transaksi-i-audit.md) mencatat pelengkapan UI serta tiga cron kedaluwarsa yang sudah aktif dan diverifikasi HTTP 200. Gunakan [checklist pengujian manual](sprints/03-transaksi-i-e2e.md) sebelum menutup DoD lingkungan bersama.
 
 **Sprint 4 – Transaksi II**
 - Migrasi: `handover_records`, `handover_photos`, `reschedule_requests`, `no_show_reports`, `payout_tasks`, `cash_movements`, `strikes`, `disputes`, `dispute_evidence`.
@@ -81,6 +81,8 @@ Status implementasi, penyiapan migrasi sampai `0007`, dan bukti pemeriksaan ters
 - `payout.ts` + pembuatan tugas pencairan untuk semua jalur (normal, batal, kedaluwarsa); F23 antrean pencairan (klaim, rekening sumber, biaya transfer, unggah bukti); pemindahan antar rekening.
 - F12 detail & riwayat transaksi (timeline, bukti pencairan).
 - Job: `stale-start`, `close-review-window`, `overdue-returns`, `no-show-timeouts`, `release-claims`, `reminders`, `sla-flags`.
+
+Implementasi lokal, migrasi `0008`, dan hasil pemeriksaan tersedia di [Sprint 4 — Transaksi II](sprints/04-transaksi-ii.md); keputusan di [ADR 0005](decisions/0005-transaksi-sprint-4.md). Penerapan ke lingkungan bersama, jadwal job, dan uji perangkat fisik dicatat di [sisa Sprint 4](sprints/04-transaksi-ii-sisa.md).
 
 **Sprint 5 – Kepercayaan & admin**
 - Migrasi: `reviews`, `reports`, `user_blocks`, `reconciliations`, `push_subscriptions`; kolom rating di `items`.
