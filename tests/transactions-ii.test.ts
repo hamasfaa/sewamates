@@ -42,6 +42,7 @@ import {
 } from "@/src/jobs/handover-jobs";
 import { reminders, slaFlags } from "@/src/jobs/alert-jobs";
 import { adminSummary } from "@/src/services/admin-service";
+import { deliverNotifications } from "@/src/jobs/deliver-notifications";
 
 const mocks = vi.hoisted(() => ({ download: vi.fn(), sendMessage: vi.fn() }));
 vi.mock("@supabase/supabase-js", () => ({
@@ -257,6 +258,12 @@ describe("serah terima, pengembalian, dan pencairan", () => {
     expect(detail.actions).toMatchObject({ canCheck: true, canDispute: true, canCancel: false });
     await checkReturn(db, f.owner, rental.id, { decision: "sesuai" });
     await checkReturn(db, f.owner, rental.id, { decision: "sesuai" });
+    const checks = await db
+      .select()
+      .from(s.notifications)
+      .where(eq(s.notifications.type, "return_check_confirmed"));
+    expect(checks).toHaveLength(1);
+    expect(checks[0].userId).toBe(f.renter.id);
     expect((await getRental(rental.id)).status).toBe("DIKEMBALIKAN");
     await checkReturn(db, f.renter, rental.id, { decision: "sesuai" });
     r = await getRental(rental.id);
@@ -298,6 +305,83 @@ describe("serah terima, pengembalian, dan pencairan", () => {
       (n) => n.type,
     );
     expect(types).toEqual(expect.arrayContaining(["payout_completed", "return_completed"]));
+    for (const type of ["handover_completed", "return_completed", "payout_scheduled"]) {
+      const notifications = await db
+        .select()
+        .from(s.notifications)
+        .where(eq(s.notifications.type, type));
+      expect(notifications.map((n) => n.userId).sort()).toEqual([f.owner.id, f.renter.id].sort());
+      expect(
+        await db
+          .select()
+          .from(s.notificationDeliveries)
+          .where(
+            inArray(
+              s.notificationDeliveries.notificationId,
+              notifications.map((n) => n.id),
+            ),
+          ),
+      ).toHaveLength(2);
+    }
+  });
+  it("kedatangan kedua pihak pada dua tahap mengirim Telegram ke pihak lawan sekali", async () => {
+    const f = await setup(),
+      rental = await paid(f);
+    process.env.TELEGRAM_BOT_TOKEN = "test-only";
+    mocks.sendMessage.mockResolvedValue({ message_id: 987 });
+    await moveSchedule(rental.id, new Date(Date.now() + 10 * MINUTE));
+    const arriveRepeatedly = async () => {
+      for (const actor of [f.renter, f.owner]) {
+        const key = crypto.randomUUID();
+        await arrive(db, actor, rental.id, {}, key);
+        await arrive(db, actor, rental.id, {}, key);
+        await arrive(db, actor, rental.id, {}, crypto.randomUUID());
+      }
+    };
+    await arriveRepeatedly();
+    await handOver(f, rental.id);
+    await arriveRepeatedly();
+    await giveBack(f, rental.id, true);
+    const arrivals = await db
+      .select()
+      .from(s.notifications)
+      .where(eq(s.notifications.type, "handover_arrived"));
+    expect(arrivals).toHaveLength(4);
+    for (const notification of arrivals) {
+      const actor = notification.body.includes(": penyewa ") ? f.renter : f.owner;
+      expect(notification.userId).toBe(actor.id === f.renter.id ? f.owner.id : f.renter.id);
+    }
+    expect(arrivals.filter((n) => n.body.includes("pengembalian"))).toHaveLength(2);
+    const deliveries = await db
+      .select()
+      .from(s.notificationDeliveries)
+      .where(
+        inArray(
+          s.notificationDeliveries.notificationId,
+          arrivals.map((n) => n.id),
+        ),
+      );
+    expect(deliveries).toHaveLength(4);
+    expect(deliveries.every((d) => d.chatId === null)).toBe(true);
+    const deliveryIds = deliveries.map((d) => d.id);
+    expect((await deliverNotifications(db, { deliveryIds })).sent).toBe(4);
+    expect((await deliverNotifications(db, { deliveryIds })).sent).toBe(0);
+    expect(mocks.sendMessage.mock.calls.map((call) => call[0]).sort()).toEqual(
+      [
+        f.owner.telegramChatId,
+        f.owner.telegramChatId,
+        f.renter.telegramChatId,
+        f.renter.telegramChatId,
+      ].sort(),
+    );
+    await checkReturn(db, f.renter, rental.id, { decision: "sesuai" });
+    await checkReturn(db, f.renter, rental.id, { decision: "sesuai" });
+    const checks = await db
+      .select()
+      .from(s.notifications)
+      .where(eq(s.notifications.type, "return_check_confirmed"));
+    expect(checks).toHaveLength(1);
+    expect(checks[0].userId).toBe(f.owner.id);
   });
   it("kode wajib setelah dua foto, salah tercatat, dan terkunci setelah lima kali", async () => {
     const f = await setup(),
@@ -706,7 +790,7 @@ describe("pembatalan, tidak hadir, dan jadwal ulang", () => {
             arrived.map((n) => n.id),
           ),
         ),
-    ).toHaveLength(0);
+    ).toHaveLength(arrived.length);
   });
   it("penyewa tidak hadir kena biaya batal; bantahan membuka sengketa tidak hadir", async () => {
     const f = await setup();

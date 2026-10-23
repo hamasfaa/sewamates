@@ -174,12 +174,16 @@ Semua aturan dan angka merujuk ke [01 – Alur & Aturan Sistem](01-alur-dan-atur
 | Batas bayar tinggal 1 jam | Penyewa | ✓ | ✓ | ✓ |
 | Pembayaran lunas / kurang / bukti ditolak | Penyewa (+ pemilik saat lunas) | ✓ | ✓ | ✓ |
 | Pengingat serah terima (H-1 & 1 jam sebelum) | Keduanya | ✓ | ✓ | ✓ |
+| Pihak lain tiba di titik serah terima/pengembalian | Pihak lain | ✓ | ✓ | ✓ |
+| Serah terima selesai / barang sudah dikembalikan | Keduanya | ✓ | ✓ | ✓ |
+| Salah satu pihak menyatakan kondisi pengembalian sesuai | Pihak lain yang belum mengonfirmasi | ✓ | ✓ | ✓ |
 | Pengingat jatuh tempo (H-1 & 2 jam sebelum) | Penyewa | ✓ | ✓ | ✓ |
 | Terlambat mengembalikan | Keduanya | ✓ | ✓ | ✓ |
 | Jadwal ulang / pembatalan / laporan tidak hadir | Pihak lain | ✓ | ✓ | ✓ |
-| Masa cek akan habis | Keduanya | ✓ | – | ✓ |
+| Masa cek akan habis | Keduanya | ✓ | ✓ | ✓ |
+| Pencairan/refund dijadwalkan | Penerima | ✓ | ✓ | ✓ |
 | Pencairan/refund selesai (dengan bukti) | Penerima | ✓ | ✓ | ✓ |
-| Sengketa dibuka/ditanggapi/diputuskan | Keduanya | ✓ | ✓ | ✓ |
+| Sengketa dibuka/bukti ditambah/ditanggapi/diputuskan | Keduanya | ✓ | ✓ | ✓ |
 | Pesan chat baru | Penerima | ✓ | – | ✓ |
 | Strike diberikan / akun ditangguhkan atau diaktifkan lagi | Pengguna | ✓ | ✓ | – |
 | Pengajuan otomatis ditolak/dibatalkan karena penangguhan akun lawan | Pihak lain | ✓ | ✓ | ✓ |

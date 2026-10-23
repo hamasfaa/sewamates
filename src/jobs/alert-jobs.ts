@@ -97,7 +97,7 @@ export async function reminders(db: Database) {
       },
     ]);
   }
-  // In-app only: the check window is not in the Telegram column of F15.
+  // Warn both participants before the check window closes and funds are released.
   for (const r of await select().where(
     and(eq(rentals.status, "DIKEMBALIKAN"), within(rentals.reviewEndsAt, 2 * HOUR)),
   ))

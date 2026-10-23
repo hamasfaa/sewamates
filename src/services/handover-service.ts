@@ -322,14 +322,15 @@ export async function confirmHandover(
           { id: actor.id, type: "user" },
           { handoverId: record.id },
         );
-        await notify(
-          tx,
-          rental.renterId,
-          "handover_completed",
-          "Serah terima selesai",
-          `${rental.publicCode}: kembalikan barang paling lambat ${dateWib(rental.dueAt)}.`,
-          `/transaksi/${rental.id}`,
-        );
+        for (const userId of [rental.ownerId, rental.renterId])
+          await notify(
+            tx,
+            userId,
+            "handover_completed",
+            "Serah terima selesai",
+            `${rental.publicCode}: sewa sudah berjalan. Jadwal pengembalian paling lambat ${dateWib(rental.dueAt)}.`,
+            `/transaksi/${rental.id}`,
+          );
         return { ok: true as const, status: next.status, version: next.version };
       }
       // Late fees stop at the renter's arrival when the owner was reported absent (A-3.7).
@@ -421,6 +422,14 @@ export async function checkReturn(
         actorType: "user",
         meta,
       });
+      await notify(
+        tx,
+        partyId(rental, otherParty(party)),
+        "return_check_confirmed",
+        `${PARTY_LABEL[party]} menyatakan kondisi sesuai`,
+        `${rental.publicCode}: ${PARTY_LABEL[party].toLowerCase()} sudah memeriksa kondisi pengembalian. Periksa kondisi dan rincian dana, lalu pilih Sesuai atau Ada masalah.`,
+        `/transaksi/${rental.id}`,
+      );
       return { status: next.status, version: next.version, disputeId };
     }
     const next = await transitionRental(

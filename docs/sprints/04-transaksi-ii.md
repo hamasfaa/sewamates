@@ -2,9 +2,11 @@
 
 Tanggal pengerjaan: 23 Oktober 2026. Dimulai setelah pemilik aplikasi menyatakan Sprint 3 selesai.
 
-**Status: implementasi lokal tersedia dan lulus pemeriksaan otomatis. Migrasi `0008` belum diterapkan ke Supabase hosted, jadwal job baru belum dipasang, dan belum ada deployment.** Keputusan implementasi ada di [ADR 0005](../decisions/0005-transaksi-sprint-4.md). Daftar langkah yang belum dijalankan ada di [Sisa Sprint 4](04-transaksi-ii-sisa.md).
+**Status: implementasi lokal lulus pemeriksaan otomatis. Uji bersama di Vercel mencapai `PENCAIRAN_DIPROSES`; migrasi sampai `0010` terpasang pada database hosted dan pesan uji kedatangan Telegram diterima. Perubahan handler notifikasi terbaru masih perlu deployment; pemasangan seluruh job dan uji perangkat fisik tetap perlu diverifikasi.** Keputusan implementasi ada di [ADR 0005](../decisions/0005-transaksi-sprint-4.md). Daftar langkah lingkungan ada di [Sisa Sprint 4](04-transaksi-ii-sisa.md).
 
 Perbaikan setelah [audit browser](04-transaksi-ii-manual.md): migrasi `0009` memisahkan foto berdasarkan versi jadwal, dan detail pencairan/sengketa admin diperbarui otomatis setiap 5 detik. Terapkan migrasi sampai `0009` sebelum menjalankan kode terbaru. Foto lama tetap disimpan sebagai arsip.
+
+Perbaikan kanal Telegram: migrasi `0010` menambahkan event kedatangan, serah terima selesai, pengembalian, konfirmasi kondisi, masa cek hampir habis, pencairan dijadwalkan, dan bukti sengketa tambahan ke outbox. Rincian ada di [perbaikan notifikasi Telegram](04-notifikasi-telegram.md). Terapkan migrasi sampai `0010` untuk kode terbaru.
 
 ## Implementasi
 
@@ -24,7 +26,7 @@ Perbaikan setelah [audit browser](04-transaksi-ii-manual.md): migrasi `0009` mem
 | F12 | Stepper 6 langkah, chip status termasuk "Terlambat", timeline `rental_events` dengan aktor, foto kondisi awal/akhir, bukti bayar, rincian penyelesaian, serta bukti transfer pencairan/refund untuk penerimanya |
 | Job | `stale-start`, `close-review-window`, `overdue-returns`, `no-show-timeouts`, `release-claims`, `reminders`, `sla-flags` |
 
-Notifikasi Telegram ditambahkan untuk pengingat, jadwal ulang, laporan tidak hadir, terlambat, pencairan selesai, sengketa dibuka, dan strike. Kabar masa cek akan habis, kedatangan pihak lain, dan pencairan dijadwalkan hanya in-app sesuai matriks F15. Tugas pencairan baru, sengketa baru, dan antrean lewat target dikirim ke grup admin.
+Notifikasi Telegram tersedia untuk pengingat, kedatangan pihak lain, serah terima selesai, pengembalian, konfirmasi kondisi pertama, masa cek hampir habis, jadwal ulang, laporan tidak hadir, terlambat, pencairan dijadwalkan/selesai, sengketa dibuka/bukti ditambah, dan strike. Kedatangan serta konfirmasi kondisi dikirim ke pihak lawan; serah terima selesai dan pengembalian dikirim ke kedua peserta; pencairan dikirim ke penerimanya. Tugas pencairan baru, sengketa baru, dan antrean lewat target dikirim hanya ke grup admin. Pesan chat biasa tetap in-app.
 
 ## API baru
 
@@ -51,7 +53,7 @@ POST /api/internal/jobs/<tujuh job Sprint 4>
 
 ## Penyiapan dev/staging
 
-1. Pastikan target database benar, lalu jalankan `npm run db:migrate` untuk menerapkan migrasi sampai `0009`. Migrasi `0008` menandai bukti yang sudah punya tugas refund Sprint 3 sebagai sudah diselesaikan agar tidak direfund dua kali; `0009` menambah metadata versi jadwal foto tanpa menghapus arsip. Tidak ada env atau bucket baru; bukti baru memakai `evidence-private`.
+1. Pastikan target database benar, lalu jalankan `npm run db:migrate` untuk menerapkan migrasi sampai `0010`. Migrasi `0008` menandai bukti yang sudah punya tugas refund Sprint 3 sebagai sudah diselesaikan agar tidak direfund dua kali; `0009` menambah metadata versi jadwal foto tanpa menghapus arsip; `0010` memperluas event Telegram tanpa memutar ulang notifikasi lama. Tidak ada env atau bucket baru; bukti baru memakai `evidence-private`.
 2. Jalankan ulang [supabase/jobs.sql](../../supabase/jobs.sql) di SQL Editor. File memasang **10 job** setiap menit (3 job lama + 7 job Sprint 4) dengan nama tetap, memakai secret Vault yang sama.
 3. Deploy kode setelah migrasi. Kamera dalam app memerlukan HTTPS (atau `localhost`); `Permissions-Policy` sudah mengizinkan `camera` dan `geolocation` untuk origin aplikasi. Browser tanpa izin kamera tetap bisa memakai galeri.
 4. Siapkan minimal dua rekening platform bila ingin menguji pemindahan kas, dan satu admin yang bukan peserta transaksi untuk mengklaim pencairan.

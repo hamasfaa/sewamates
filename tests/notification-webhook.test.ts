@@ -75,6 +75,49 @@ function request(deliveryId: string, token = "test-webhook-secret") {
 }
 
 describe("webhook Telegram dari event database", () => {
+  it.each([
+    "handover_arrived",
+    "handover_completed",
+    "return_completed",
+    "return_check_confirmed",
+    "review_ending",
+    "payout_scheduled",
+    "dispute_evidence",
+  ])(
+    "event transaksi %s mengantrekan webhook dan mengirim ke penerima yang tertaut",
+    async (type) => {
+      const actor = await user(db);
+      const notification = await notify(
+        db,
+        actor.id,
+        type,
+        "Pembaruan transaksi",
+        "Event pengujian",
+        "/transaksi",
+      );
+      const [delivery] = await db
+        .select()
+        .from(s.notificationDeliveries)
+        .where(eq(s.notificationDeliveries.notificationId, notification.id));
+      expect(delivery).toMatchObject({ status: "antre", chatId: null });
+      expect(delivery.dispatchRequestId).not.toBeNull();
+      expect((await db.execute(sql`SELECT body FROM net.requests`)).rows).toEqual([
+        { body: { deliveryId: delivery.id } },
+      ]);
+      expect((await notificationWebhook(request(delivery.id))).status).toBe(202);
+      await mocks.after.mock.calls[0][0]();
+      expect(mocks.sendMessage).toHaveBeenCalledTimes(1);
+      expect(mocks.sendMessage.mock.calls[0][0]).toBe(actor.telegramChatId);
+      await deliverNotificationEvent(db, delivery.id);
+      expect(mocks.sendMessage).toHaveBeenCalledTimes(1);
+    },
+  );
+  it.each(["chat_message", "admin_task"])("%s tidak membuat DM Telegram otomatis", async (type) => {
+    const actor = await user(db);
+    await notify(db, actor.id, type, "Pembaruan", "In-app", "/notifikasi");
+    expect(await db.select().from(s.notificationDeliveries)).toHaveLength(0);
+    expect((await db.execute(sql`SELECT * FROM net.requests`)).rows).toHaveLength(0);
+  });
   it("insert event langsung mencatat webhook dengan satu deliveryId, tanpa cron atau request aplikasi", async () => {
     const f = await event();
     const result = await db.execute<{ id: string; body: { deliveryId: string }; url: string }>(

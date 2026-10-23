@@ -12,9 +12,9 @@ Per 23 Oktober 2026. Implementasi dan hasil tes lokal ada di [Sprint 4 — Trans
 ## 2. Langkah lingkungan bersama
 
 - [x] Commit kode Sprint 4 (`efecd88`). Pembaruan dokumen bagian 1 belum di-commit.
-- [ ] Pastikan target `.env.local` benar, lalu terapkan migrasi sampai `0009` dengan `npm run db:migrate` ke dev/staging. `0009` diperlukan untuk memisahkan foto setiap jadwal setelah perbaikan audit; tidak mengubah isi berkas foto lama.
+- [x] Database Supabase yang dipakai `sewamates-ashy.vercel.app` sudah menerapkan migrasi sampai `0010`. `0009` memisahkan foto setiap jadwal; `0010` memperluas event Telegram. Untuk database lingkungan lain, jalankan `npm run db:migrate` setelah memastikan targetnya benar.
 - [ ] Jalankan ulang [supabase/jobs.sql](../../supabase/jobs.sql). Periksa ada 10 job `sewamates-*` di `cron.job` dan setiap job mendapat HTTP 200 di `net._http_response`.
-- [ ] Deploy kode ke URL HTTPS setelah migrasi.
+- [ ] Deploy perubahan handler notifikasi terbaru setelah migrasi: pemberitahuan kondisi pertama "Sesuai" dan serah terima selesai ke kedua peserta. Hasil pengujian dan aktivasi database ada di [perbaikan Telegram](04-notifikasi-telegram.md).
 
 ## 3. Pengujian manual
 

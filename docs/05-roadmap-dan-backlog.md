@@ -82,7 +82,7 @@ Status implementasi, penyiapan migrasi sampai `0007`, dan bukti pemeriksaan ters
 - F12 detail & riwayat transaksi (timeline, bukti pencairan).
 - Job: `stale-start`, `close-review-window`, `overdue-returns`, `no-show-timeouts`, `release-claims`, `reminders`, `sla-flags`.
 
-Implementasi lokal, migrasi `0008`, dan hasil pemeriksaan tersedia di [Sprint 4 — Transaksi II](sprints/04-transaksi-ii.md); keputusan di [ADR 0005](decisions/0005-transaksi-sprint-4.md). Penerapan ke lingkungan bersama, jadwal job, dan uji perangkat fisik dicatat di [sisa Sprint 4](sprints/04-transaksi-ii-sisa.md).
+Implementasi lokal, migrasi sampai `0010`, dan hasil pemeriksaan tersedia di [Sprint 4 — Transaksi II](sprints/04-transaksi-ii.md); keputusan di [ADR 0005](decisions/0005-transaksi-sprint-4.md). Aktivasi Telegram dicatat di [perbaikan notifikasi](sprints/04-notifikasi-telegram.md). Penerapan ke lingkungan bersama, jadwal job, dan uji perangkat fisik dicatat di [sisa Sprint 4](sprints/04-transaksi-ii-sisa.md).
 
 **Sprint 5 – Kepercayaan & admin**
 - Migrasi: `reviews`, `reports`, `user_blocks`, `reconciliations`, `push_subscriptions`; kolom rating di `items`.
