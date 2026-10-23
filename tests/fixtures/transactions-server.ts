@@ -1,7 +1,13 @@
 import { createServer } from "node:http";
 import { randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
-import { e2eDatabaseUrl, e2eAppUrl, storageUrl, testStorageKey } from "./transactions-env";
+import {
+  e2eDatabaseUrl,
+  e2eAppUrl,
+  storageUrl,
+  testAccountKey,
+  testStorageKey,
+} from "./transactions-env";
 
 const objects = new Map<string, { bytes: Buffer; type: string }>();
 const tokens = new Map<string, { path: string; expires: number; upload: boolean }>();
@@ -88,7 +94,7 @@ const next = spawn(
       TELEGRAM_WEBHOOK_SECRET: "",
       TELEGRAM_ADMIN_CHAT_ID: "",
       INTERNAL_JOB_SECRET: "local-e2e-job-only",
-      ACCOUNT_ENCRYPTION_KEY: Buffer.alloc(32, 1).toString("base64"),
+      ACCOUNT_ENCRYPTION_KEY: testAccountKey,
       NEXT_PUBLIC_SENTRY_DSN: "",
       SENTRY_AUTH_TOKEN: "",
       SENTRY_ORG: "",

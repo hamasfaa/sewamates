@@ -10,6 +10,9 @@ import {
   Shield,
   ArrowUpRight,
   Wallet,
+  Send,
+  Scale,
+  Landmark,
 } from "lucide-react";
 import { cn } from "@/src/lib/utils";
 import { useLiveApi, type Wire } from "@/src/lib/live-api";
@@ -62,6 +65,19 @@ export function AdminLayout({
               icon: Wallet,
               count: summary.data?.paymentsPending,
             },
+            {
+              href: "/admin/pencairan",
+              label: "Pencairan",
+              icon: Send,
+              count: summary.data?.payoutsPending,
+            },
+            {
+              href: "/admin/sengketa",
+              label: "Sengketa",
+              icon: Scale,
+              count: summary.data?.disputesOpen,
+            },
+            { href: "/admin/kas", label: "Kas", icon: Landmark, count: undefined },
             { href: "/admin/audit", label: "Audit log", icon: ScrollText, count: undefined },
             ...(superAdmin
               ? [

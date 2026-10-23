@@ -2,7 +2,7 @@ import { and, eq, lt } from "drizzle-orm";
 import type { Database } from "@/src/db";
 import { rentals } from "@/src/db/schema";
 import { lockRental, transitionRental } from "@/src/services/rental-service";
-import { refundAcceptedPayments } from "@/src/services/payment-service";
+import { settleRental } from "@/src/services/settlement-service";
 import { notify } from "@/src/services/notification-service";
 
 export async function expireRentals(db: Database, kind: "requests" | "payments") {
@@ -26,7 +26,7 @@ export async function expireRentals(db: Database, kind: "requests" | "payments")
         { type: "system" },
         { job: `expire-${kind}` },
       );
-      await refundAcceptedPayments(tx, next);
+      await settleRental(tx, next);
       await notify(
         tx,
         rental.renterId,

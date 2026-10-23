@@ -1,11 +1,13 @@
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, ne, sql } from "drizzle-orm";
 import type { Database, Executor } from "@/src/db";
 import {
   adminAuditLogs,
+  disputes,
   identityVerifications,
   items,
   notifications,
   payments,
+  payoutTasks,
   users,
   type User,
 } from "@/src/db/schema";
@@ -162,12 +164,30 @@ export async function adminSummary(db: Executor, actor: User) {
     })
     .from(payments)
     .where(eq(payments.status, "menunggu"));
+  const [payoutCounts] = await db
+    .select({
+      pending: sql<number>`count(*)::int`,
+      overdue: sql<number>`count(*) filter (where ${payoutTasks.targetAt} <= now())::int`,
+    })
+    .from(payoutTasks)
+    .where(ne(payoutTasks.status, "selesai"));
+  const [disputeCounts] = await db
+    .select({
+      open: sql<number>`count(*)::int`,
+      overdue: sql<number>`count(*) filter (where ${disputes.decideBy} <= now())::int`,
+    })
+    .from(disputes)
+    .where(eq(disputes.status, "dibuka"));
   return {
     ...result,
     listingsPending: listings.pending,
     listingsOverdue: listings.overdue,
     paymentsPending: paymentCounts.pending,
     paymentsOverdue: paymentCounts.overdue,
+    payoutsPending: payoutCounts.pending,
+    payoutsOverdue: payoutCounts.overdue,
+    disputesOpen: disputeCounts.open,
+    disputesOverdue: disputeCounts.overdue,
   };
 }
 export async function auditLogs(

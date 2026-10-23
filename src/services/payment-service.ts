@@ -1,12 +1,8 @@
 import { and, asc, eq, gt, ilike, lte, or } from "drizzle-orm";
-import { randomUUID } from "node:crypto";
 import type { Database, Executor } from "@/src/db";
 import {
   adminAuditLogs,
-  ledgerEntries,
   payments,
-  payoutAccounts,
-  payoutTasks,
   platformAccounts,
   rentalEvents,
   rentals,
@@ -23,10 +19,12 @@ import {
 } from "@/src/lib/transaction-validation";
 import { claimUploads, evidencePreview, inspectEvidence } from "@/src/lib/storage";
 import { FINAL_STATUSES, RENTAL_LABELS } from "@/src/domain/rental-state-machine";
-import { addDays, paymentReviewTarget, wibDateKey, wibDayStart } from "@/src/domain/availability";
+import { paymentReviewTarget } from "@/src/domain/availability";
 import { requireAdmin, requireSuperAdmin } from "./admin-service";
 import { lockRental, transitionRental } from "./rental-service";
 import { notify, notifyAdmins } from "./notification-service";
+import { postEntries } from "./ledger-service";
+import { settleRental } from "./settlement-service";
 
 async function accountAudit(tx: Executor, actor: User, action: string, id: string) {
   await tx
@@ -114,38 +112,18 @@ export interface PaymentProvider {
     amount: number,
   ): Promise<void>;
 }
-export async function postJournal(
-  tx: Executor,
-  rentalId: string,
-  paymentId: string,
-  debitAccount: string,
-  creditAccount: string,
-  amount: number,
-  memo: string,
-) {
-  assert(
-    Number.isSafeInteger(amount) && amount > 0 && debitAccount !== creditAccount,
-    "INVALID_JOURNAL",
-    "Nominal jurnal tidak valid.",
-    422,
-  );
-  const journalId = randomUUID();
-  await tx.insert(ledgerEntries).values([
-    { journalId, rentalId, paymentId, account: debitAccount, debit: amount, credit: 0, memo },
-    { journalId, rentalId, paymentId, account: creditAccount, debit: 0, credit: amount, memo },
-  ]);
-}
 export const manualPaymentProvider: PaymentProvider = {
-  receive: (tx, rentalId, paymentId, accountId, amount) =>
-    postJournal(
+  receive: async (tx, rentalId, paymentId, accountId, amount) => {
+    await postEntries(
       tx,
-      rentalId,
-      paymentId,
-      `kas:${accountId}`,
-      "dana_ditahan",
-      amount,
+      { rentalId, paymentId },
+      [
+        { account: `kas:${accountId}`, debit: amount },
+        { account: "dana_ditahan", credit: amount },
+      ],
       "Bukti transfer diterima admin",
-    ),
+    );
+  },
 };
 export async function submitPayment(
   db: Database,
@@ -244,63 +222,6 @@ export async function submitPayment(
         409,
       );
     throw error;
-  }
-}
-export async function refundAcceptedPayments(tx: Executor, rental: Rental) {
-  if (!FINAL_STATUSES.includes(rental.status) || rental.amountReceived === 0) return;
-  const [payout] = await tx
-    .select()
-    .from(payoutAccounts)
-    .where(eq(payoutAccounts.userId, rental.renterId));
-  assert(
-    payout,
-    "REFUND_ACCOUNT_MISSING",
-    "Rekening refund belum tersedia. Hubungi pengelola.",
-    409,
-  );
-  const accepted = await tx
-    .select()
-    .from(payments)
-    .where(and(eq(payments.rentalId, rental.id), eq(payments.status, "diterima")));
-  const rules = rental.rulesSnapshot,
-    now = new Date(),
-    hour = new Date(now.getTime() + 7 * 3600000).getUTCHours();
-  const target = new Date(
-    wibDayStart(
-      hour < rules.payout_cutoff_hour ? wibDateKey(now) : addDays(wibDateKey(now), 1),
-    ).getTime() +
-      (hour < rules.payout_cutoff_hour ? rules.payout_same_day_hour : rules.payout_next_day_hour) *
-        3600000,
-  );
-  for (const payment of accepted) {
-    const [task] = await tx
-      .insert(payoutTasks)
-      .values({
-        rentalId: rental.id,
-        recipientId: rental.renterId,
-        sourcePaymentId: payment.id,
-        kind: "refund_penyewa",
-        amount: payment.verifiedAmount!,
-        accountSnapshot: {
-          type: payout.type,
-          provider: payout.provider,
-          accountNoEnc: payout.accountNoEnc,
-          accountName: payout.accountName,
-        },
-        targetAt: target,
-      })
-      .onConflictDoNothing({ target: payoutTasks.sourcePaymentId })
-      .returning();
-    if (task)
-      await postJournal(
-        tx,
-        rental.id,
-        payment.id,
-        "dana_ditahan",
-        "hutang_penyewa",
-        payment.verifiedAmount!,
-        "Dana transaksi final menjadi kewajiban refund",
-      );
   }
 }
 export async function decidePayment(
@@ -416,7 +337,8 @@ export async function decidePayment(
         },
       });
     }
-    await refundAcceptedPayments(tx, updated);
+    // Funds verified after the transaction ended go back to the renter (A-2.2).
+    if (FINAL_STATUSES.includes(updated.status)) await settleRental(tx, updated);
     await tx.insert(adminAuditLogs).values({
       adminId: actor.id,
       action: accepted ? "payment_accepted" : "payment_rejected",

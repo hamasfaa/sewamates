@@ -11,6 +11,8 @@ import {
   PackageSearch,
   ShieldCheck,
   Wallet,
+  Send,
+  Scale,
 } from "lucide-react";
 import { api, useApi } from "@/src/lib/client-api";
 import { useLiveApi, type Wire } from "@/src/lib/live-api";
@@ -33,7 +35,8 @@ export function AdminSummary() {
       </p>
       <h1 className="text-3xl">Jaga kepercayaan, bareng.</h1>
       <p className="mt-3 mb-7 text-sm text-muted-foreground">
-        Pantau verifikasi identitas, moderasi listing, dan pembayaran dari satu tempat.
+        Pantau verifikasi identitas, moderasi listing, pembayaran, pencairan, dan sengketa dari satu
+        tempat.
       </p>
       {query.error && (
         <p className="notice notice-error mb-5" role="alert">
@@ -77,6 +80,30 @@ export function AdminSummary() {
             title: "Pembayaran lewat target",
             value: query.data?.paymentsOverdue,
             help: "Bukti transfer yang melewati target verifikasi",
+          },
+          {
+            icon: Send,
+            title: "Pencairan & refund menunggu",
+            value: query.data?.payoutsPending,
+            help: "Tugas transfer ke pemilik atau penyewa yang belum berbukti",
+          },
+          {
+            icon: Clock3,
+            title: "Pencairan lewat target",
+            value: query.data?.payoutsOverdue,
+            help: "Sebelum 18.00 selesai pukul 21.00; setelahnya besok pukul 12.00",
+          },
+          {
+            icon: Scale,
+            title: "Sengketa terbuka",
+            value: query.data?.disputesOpen,
+            help: "Dana ditahan sampai ada putusan",
+          },
+          {
+            icon: Clock3,
+            title: "Sengketa lewat target putusan",
+            value: query.data?.disputesOverdue,
+            help: "Putusan melewati 72 jam sejak dibuka",
           },
         ].map(({ icon: Icon, title, value, help }) => (
           <Card key={title}>

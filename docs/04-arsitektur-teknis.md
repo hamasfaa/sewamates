@@ -33,7 +33,7 @@ Alasan: satu basis kode, rilis tanpa proses toko aplikasi, tautan mudah dibagika
 
 Akses data: **semua penulisan lewat server** (Route Handlers / Server Actions) memakai koneksi server. Row Level Security tetap diaktifkan sebagai lapis kedua: tabel sensitif menolak semua akses dari klien, dan tabel chat/notifikasi hanya bisa dibaca peserta (dibutuhkan oleh Realtime).
 
-Implementasi Sprint 3 memakai server untuk pembacaan chat juga, sehingga tabel chat menolak akses langsung `anon`/`authenticated`. JWT Realtime belum diterbitkan; peserta diperiksa dari sesi aplikasi pada setiap request. Lihat [ADR 0004](decisions/0004-transaksi-sprint-3.md). Model berikut mencakup target sprint selanjutnya; kolom serah terima/sengketa/pencairan lengkap belum tersedia pada `0005`.
+Implementasi Sprint 3 memakai server untuk pembacaan chat juga, sehingga tabel chat menolak akses langsung `anon`/`authenticated`. JWT Realtime belum diterbitkan; peserta diperiksa dari sesi aplikasi pada setiap request. Lihat [ADR 0004](decisions/0004-transaksi-sprint-3.md). Model berikut mencakup target sprint selanjutnya. Kolom serah terima, sengketa, dan pencairan tersedia sejak `0008` (Sprint 4, [ADR 0005](decisions/0005-transaksi-sprint-4.md)); tabel Sprint 5 seperti `reviews` dan `reconciliations` belum dibuat.
 
 ## 3. Struktur Repo
 
@@ -108,9 +108,11 @@ rentals(id, public_code UNIQUE,                 -- mis. SM-2610-00123, tampil di
         amount_received,                                 -- jumlah bukti bayar yang diterima
         rules_snapshot jsonb,                            -- settings yang berlaku saat disetujui (denda, toleransi, biaya batal, dll)
         listing_snapshot jsonb,                          -- judul, kondisi/deskripsi, foto dan titik saat pengajuan
-        late_fee, status, status_before_dispute, respond_by, pay_by, review_ends_at, returned_at,
-        handover_code_hash, return_code_hash, code_failed_attempts, code_locked_until,
-        reschedule_count, cancelled_by, cancel_reason, version)
+        late_fee, late_until, status, status_before_dispute, respond_by, pay_by, review_ends_at,
+        returned_at, owner_ok_at, renter_ok_at, reschedule_count, cancelled_by, cancel_reason,
+        settled_at, settlement jsonb, version)
+        -- late_until: kedatangan penyewa bila pemilik dinyatakan tidak hadir saat pengembalian
+        -- settlement: hasil pembagian dana (normal / refund_penuh / biaya_batal / putusan)
 
   -- tidak boleh ada dua hold/sewa aktif yang tumpang tindih pada barang yang sama
   EXCLUDE USING gist (item_id WITH =, block_period WITH &&)
@@ -119,15 +121,19 @@ rentals(id, public_code UNIQUE,                 -- mis. SM-2610-00123, tampil di
   UNIQUE (unique_code) WHERE (status IN ('DISETUJUI','MENUNGGU_VERIFIKASI'))
 
 rental_events(id, rental_id, from_status, to_status, actor_id NULL, actor_type[user|admin|system], meta jsonb)
-reschedule_requests(id, rental_id, proposed_by, new_start_at, status[menunggu|disetujui|ditolak], responded_at)
+reschedule_requests(id, rental_id, proposed_by, new_start_at,
+                    status[menunggu|disetujui|ditolak|kedaluwarsa], responded_at)
 handover_records(id, rental_id, type[start|end], owner_arrived_at, renter_arrived_at,
-                 owner_location, renter_location, completed_at)
-handover_photos(id, handover_id, uploaded_by, path, source[camera|gallery], received_at)
-no_show_reports(id, rental_id, reported_by, reported_party, status[menunggu|diterima|dibantah], respond_by)
+                 owner_location, renter_location, photos_confirmed_at,
+                 code_hash, code_issued_at, code_failed_attempts, code_locked_until, completed_at,
+                 UNIQUE(rental_id, type))
+handover_photos(id, handover_id, uploaded_by, path, source[camera|gallery], received_at)   -- tidak bisa diubah
+no_show_reports(id, rental_id, phase[start|end], reported_by, reported_party,
+                status[menunggu|diterima|dibantah|gugur], respond_by, resolved_at)
 ```
 Bentrok dengan `availability_blocks` dicek di service dalam transaksi DB yang mengunci baris `items` (`SELECT … FOR UPDATE`), karena exclusion constraint tidak bisa lintas tabel.
 
-Migrasi `0005` mengisi kolom sampai kebutuhan Sprint 3: jadwal, snapshot, angka uang, status, `respond_by`/`pay_by`, pembatalan gratis dan versi. Kolom serah terima, denda, jadwal ulang, sengketa dan masa cek ditambahkan pada Sprint 4. Pembuatan kode publik memakai sequence dan bulan WIB.
+Migrasi `0005` mengisi kolom sampai kebutuhan Sprint 3: jadwal, snapshot, angka uang, status, `respond_by`/`pay_by`, pembatalan gratis dan versi. Migrasi `0008` menambahkan kolom serah terima, denda, jadwal ulang, sengketa, masa cek, dan penyelesaian dana. Kode serah terima/pengembalian disimpan sebagai hash per tahap di `handover_records`, bukan kolom `rentals`. Pembuatan kode publik memakai sequence dan bulan WIB.
 
 ### 4.4 Uang
 ```
@@ -160,7 +166,7 @@ reconciliations(id, date, platform_account_id, actual_balance, ledger_balance, n
 
 Saldo = jumlah entri; tidak ada kolom saldo yang diubah langsung. `ledger_balance` rekonsiliasi = saldo akun `kas:<rekening>`. Invarian yang diuji: saldo `dana_ditahan` per transaksi final = 0; saldo `hutang_*` per tugas selesai = 0; `pendapatan_komisi` tidak pernah negatif.
 
-Fondasi `payout_tasks` pada Sprint 3 berisi kewajiban refund, `source_payment_id UNIQUE`, snapshot rekening terenkripsi dan target waktu. Klaim, sumber transfer, biaya, dan bukti penyelesaian baru pada Sprint 4. `ledger_entries` menambahkan referensi `payment_id`; keseimbangan jurnal diperiksa oleh deferred trigger dan entri tidak dapat di-update/delete.
+Fondasi `payout_tasks` pada Sprint 3 berisi kewajiban refund, `source_payment_id UNIQUE`, snapshot rekening terenkripsi dan target waktu. Migrasi `0008` menambahkan klaim, sumber transfer, biaya, bukti, dan penyelesaian; tugas `selesai` tidak bisa diubah. `payments.settled_at` memastikan setiap bukti diterima diselesaikan sekali: bersama pembagian dana transaksi, atau sebagai refund tersendiri bila diverifikasi setelah transaksi final. `ledger_entries` menambahkan referensi `payment_id`, `payout_task_id`, dan `cash_movement_id`; keseimbangan jurnal diperiksa oleh deferred trigger dan entri tidak dapat di-update/delete. `cash_movements` juga tidak dapat diubah.
 
 ### 4.5 Sengketa, chat, sosial
 ```
@@ -194,6 +200,7 @@ telegram_updates(update_id PRIMARY KEY, received_at)   -- dedup webhook (Telegra
 push_subscriptions(id, user_id, endpoint UNIQUE, p256dh, auth)
 settings(key PRIMARY KEY, value jsonb, updated_by)
 admin_audit_logs(id, admin_id, action, target_type, target_id, meta jsonb)
+sent_alerts(kind, target_id, PRIMARY KEY(kind, target_id))   -- pengingat/peringatan SLA terkirim sekali
 ```
 
 ## 5. API (Route Handlers)
@@ -233,6 +240,7 @@ POST   /api/rentals/:id/approve | reject | cancel
 POST   /api/rentals/:id/payments        (unggah bukti transfer)
 POST   /api/rentals/:id/arrive          (Saya sudah sampai)
 POST   /api/rentals/:id/handover/photos
+POST   /api/rentals/:id/handover/code      (kode baru untuk pihak yang menunjukkan; hanya hash yang disimpan)
 POST   /api/rentals/:id/handover/confirm   (kode serah terima / pengembalian)
 POST   /api/rentals/:id/check           (Sesuai / Ada masalah pada masa cek)
 POST   /api/rentals/:id/reschedule      POST /api/rentals/:id/reschedule/:reqId/respond
@@ -255,8 +263,10 @@ POST   /api/admin/items/:id/decision    (disetujui / ditolak + alasan; wajib ver
 GET    /api/admin/reports               POST /api/admin/reports/:id/action
 GET    /api/admin/payments              POST /api/admin/payments/:proofId/decision   (per bukti: terima + nominal / tolak + alasan)
 GET    /api/admin/payments/:proofId     (bukti privat dan snapshot tagihan, akses diaudit)
-GET    /api/admin/payout-tasks          POST /api/admin/payout-tasks/:id/claim
+GET    /api/admin/payout-tasks          POST /api/admin/payout-tasks/:id/claim | release
+GET    /api/admin/payout-tasks/:id      (rekening tujuan lengkap, akses diaudit)
 POST   /api/admin/payout-tasks/:id/complete
+GET    /api/admin/cash                  (saldo kas ledger per rekening + riwayat pemindahan)
 GET    /api/admin/disputes              GET /api/admin/disputes/:id
 POST   /api/admin/disputes/:id/decision
 GET    /api/admin/conversations/:id     (hanya bila terkait sengketa/laporan; dicatat di audit log)
@@ -275,7 +285,9 @@ POST   /api/internal/notifications/deliver (webhook pg_net, Bearer INTERNAL_JOB_
 POST   /api/telegram/webhook            (update dari Telegram; wajib header X-Telegram-Bot-Api-Secret-Token)
 ```
 
-Rute Sprint 3 dijalankan oleh `transaction-routes.ts`. `state` daftar rental menerima `aktif|selesai|dibatalkan`; aksi rental/keputusan pembayaran wajib `version`. Keputusan bukti memakai `decision: diterima|ditolak` disertai `verifiedAmount` atau `reason`. POST `/api/reports` pada Sprint 3 menerima `{messageId,reason}`; pengelolaan laporan umum mengikuti Sprint 5. Rute serah terima/pencairan/sengketa pada daftar target di atas belum diimplementasikan pada Sprint 3.
+Rute Sprint 3 dijalankan oleh `transaction-routes.ts`. `state` daftar rental menerima `aktif|selesai|dibatalkan`; aksi rental/keputusan pembayaran wajib `version`. Keputusan bukti memakai `decision: diterima|ditolak` disertai `verifiedAmount` atau `reason`. POST `/api/reports` pada Sprint 3 menerima `{messageId,reason}`; pengelolaan laporan umum mengikuti Sprint 5.
+
+Sprint 4 mengimplementasikan rute serah terima, masa cek, jadwal ulang, tidak hadir, pembukaan sengketa, bukti sengketa, antrean pencairan, kas, serta daftar/detail sengketa admin (read-only). `POST /check` menerima `{decision:"sesuai"}` atau `{decision:"masalah", category, description, evidencePaths}`. Pembatalan saat `DIBAYAR` wajib mengirim `fee` sesuai konsekuensi yang ditampilkan. POST `/api/admin/cash-movements` pada Sprint 4 hanya mencatat pemindahan antar rekening. Putusan sengketa, review, penyesuaian, rekonsiliasi, dan penarikan komisi mengikuti Sprint 5. Ringkasan dan contoh body ada di [Sprint 4](sprints/04-transaksi-ii.md#api-baru).
 
 GET `/api/admin/payments` menerima `q` (kode transaksi/nama pengirim, maksimal 100 karakter) dan `sla=all|overdue|on_time`. Filter diterapkan sebelum batas 100 bukti, dengan urutan bukti terlama. `/api/admin/summary` menyertakan `paymentsPending` dan `paymentsOverdue` dari seluruh bukti menunggu, untuk badge antrean yang diperbarui setiap 5 detik. Templat alasan penolakan mengisi teks yang tetap dapat disunting; server tetap memvalidasi alasan dan hak admin.
 
@@ -347,7 +359,7 @@ Dipanggil tiap menit oleh `pg_cron`. Semua job **idempoten** (aman dijalankan ul
 | `expire-login-requests` | Login request & konfirmasi aksi lewat `expires_at` → kedaluwarsa; hapus yang > 7 hari |
 | `purge-identity` | Hapus foto identitas akun yang sudah dihapus > 30 hari |
 
-Sprint 3 memasang tiga job: `expire-login-requests`, `expire-requests`, dan `expire-payments`. Pengiriman Telegram berjalan lewat trigger outbox pada migrasi `0007`, tanpa jadwal atau cron cadangan. Callback mengirim delivery yang diminta dan melakukan maksimal 5 percobaan dalam anggaran 240 detik; route mengizinkan 300 detik (Vercel Fluid Compute). Gangguan endpoint atau retry yang melewati anggaran memerlukan redispatch operasional. Lihat [penyiapan dan pemulihan](sprints/03-transaksi-i.md#webhook-telegram-tanpa-cron).
+Sprint 3 memasang tiga job: `expire-login-requests`, `expire-requests`, dan `expire-payments`. Sprint 4 menambahkan `stale-start`, `close-review-window`, `overdue-returns`, `no-show-timeouts`, `release-claims`, `reminders`, dan `sla-flags`; `supabase/jobs.sql` memasang 10 job. `reveal-reviews`, `expire-strikes`/`auto-suspend`, dan `purge-identity` mengikuti Sprint 5. Pengiriman Telegram berjalan lewat trigger outbox pada migrasi `0007`, tanpa jadwal atau cron cadangan. Callback mengirim delivery yang diminta dan melakukan maksimal 5 percobaan dalam anggaran 240 detik; route mengizinkan 300 detik (Vercel Fluid Compute). Gangguan endpoint atau retry yang melewati anggaran memerlukan redispatch operasional. Lihat [penyiapan dan pemulihan](sprints/03-transaksi-i.md#webhook-telegram-tanpa-cron).
 
 ## 8. Lingkungan, CI & Tes
 - Lingkungan: `local` (Supabase CLI + Next dev), `staging`, `production`; database dan bucket terpisah per lingkungan. Setiap lingkungan memakai **bot Telegram terpisah** (mis. `@SewaMatesDevBot`, `@SewaMatesStagingBot`, `@SewaMatesBot`); di `local`, webhook diarahkan lewat tunnel (mis. cloudflared) atau bot dijalankan mode long polling.

@@ -15,3 +15,4 @@ export function e2eDatabaseUrl() {
 export const e2eAppUrl = "http://localhost:3100";
 export const storageUrl = "http://127.0.0.1:3101";
 export const testStorageKey = "local-e2e-storage-only";
+export const testAccountKey = Buffer.alloc(32, 1).toString("base64");

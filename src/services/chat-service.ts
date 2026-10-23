@@ -4,8 +4,10 @@ import type { Database, Executor } from "@/src/db";
 import {
   adminAuditLogs,
   conversations,
+  disputes,
   items,
   messages,
+  rentals,
   reports,
   userBlocks,
   users,
@@ -122,7 +124,7 @@ export async function conversationList(db: Executor, actor: User) {
           : redactChat(row.preview).text,
   }));
 }
-async function presentMessages(rows: (typeof messages.$inferSelect)[], raw = false) {
+export async function presentMessages(rows: (typeof messages.$inferSelect)[], raw = false) {
   return Promise.all(
     rows.map(async (row) => ({
       id: row.id,
@@ -324,18 +326,26 @@ export async function adminConversation(db: Database, actor: User, id: string) {
       .innerJoin(messages, eq(messages.id, reports.targetId))
       .where(and(eq(reports.targetType, "message"), eq(messages.conversationId, id)))
       .limit(1);
+    const disputed = linked.length
+      ? []
+      : await tx
+          .select({ id: disputes.id })
+          .from(disputes)
+          .innerJoin(rentals, eq(rentals.id, disputes.rentalId))
+          .where(eq(rentals.conversationId, id))
+          .limit(1);
     assert(
-      linked.length,
+      linked.length || disputed.length,
       "FORBIDDEN",
       "Admin hanya dapat membaca chat yang terkait laporan atau sengketa.",
       403,
     );
     await tx.insert(adminAuditLogs).values({
       adminId: actor.id,
-      action: "reported_chat_viewed",
+      action: linked.length ? "reported_chat_viewed" : "dispute_chat_viewed",
       targetType: "conversations",
       targetId: id,
-      meta: { reportId: linked[0].id },
+      meta: linked.length ? { reportId: linked[0].id } : { disputeId: disputed[0].id },
     });
     const rows = await tx
       .select()

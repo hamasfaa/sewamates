@@ -16,13 +16,31 @@ const buckets: Record<UploadPurpose, string> = {
   item_photo: "items-public",
   payment_proof: "evidence-private",
   chat_image: "evidence-private",
+  handover_photo: "evidence-private",
+  dispute_evidence: "evidence-private",
+  payout_proof: "evidence-private",
+  cash_proof: "evidence-private",
 };
 const MAX_BYTES = 5 * 1024 * 1024;
+// Transfer proofs and dispute evidence may be PDF; condition photos and chat images may not.
+export const PDF_PURPOSES: UploadPurpose[] = [
+  "payment_proof",
+  "dispute_evidence",
+  "payout_proof",
+  "cash_proof",
+];
+// Suspended accounts still finish transactions that were already approved (A-3.1).
+const SUSPENDED_PURPOSES: UploadPurpose[] = [
+  "payment_proof",
+  "chat_image",
+  "handover_photo",
+  "dispute_evidence",
+];
 // Public listing photos may only come from verified accounts (A-3.1).
 export function canUpload(user: User, purpose: UploadPurpose) {
   assert(
     user.accountStatus === "aktif" ||
-      (user.accountStatus === "ditangguhkan" && ["payment_proof", "chat_image"].includes(purpose)),
+      (user.accountStatus === "ditangguhkan" && SUSPENDED_PURPOSES.includes(purpose)),
     "ACCOUNT_RESTRICTED",
     "Akun sedang dibatasi.",
     403,
@@ -31,6 +49,12 @@ export function canUpload(user: User, purpose: UploadPurpose) {
     purpose !== "item_photo" || user.verificationStatus === "terverifikasi",
     "VERIFICATION_REQUIRED",
     "Verifikasi identitasmu dulu sebelum mengunggah foto barang.",
+    403,
+  );
+  assert(
+    !["payout_proof", "cash_proof"].includes(purpose) || user.role !== "user",
+    "FORBIDDEN",
+    "Bukti pencairan dan kas hanya diunggah admin.",
     403,
   );
 }
@@ -238,14 +262,17 @@ export async function identityPreview(path: string) {
   return data.signedUrl;
 }
 
-export async function inspectEvidence(
-  userId: string,
-  path: string,
-  purpose: "payment_proof" | "chat_image",
-) {
+export type EvidencePurpose =
+  | "payment_proof"
+  | "chat_image"
+  | "handover_photo"
+  | "dispute_evidence"
+  | "payout_proof"
+  | "cash_proof";
+export async function inspectEvidence(userId: string, path: string, purpose: EvidencePurpose) {
   assert(
     path.startsWith(`${userId}/${purpose}/`) &&
-      /^[0-9a-f-]{36}\/(payment_proof|chat_image)\/[0-9a-f-]{36}\.(jpg|png|webp|pdf)$/.test(path),
+      /^[0-9a-f-]{36}\/[a-z_]+\/[0-9a-f-]{36}\.(jpg|png|webp|pdf)$/.test(path),
     "INVALID_UPLOAD",
     "Unggahan ini bukan milikmu atau tujuannya tidak sesuai.",
     422,
@@ -258,11 +285,12 @@ export async function inspectEvidence(
     422,
   );
   const bytes = new Uint8Array(await data.arrayBuffer());
-  const pdf = Buffer.from(bytes.slice(0, 5)).toString() === "%PDF-";
+  const pdf = Buffer.from(bytes.slice(0, 5)).toString() === "%PDF-",
+    pdfAllowed = PDF_PURPOSES.includes(purpose);
   assert(
-    isImage(bytes) || (purpose === "payment_proof" && pdf),
+    isImage(bytes) || (pdfAllowed && pdf),
     "INVALID_FILE",
-    purpose === "payment_proof"
+    pdfAllowed
       ? "Pilih foto JPEG/PNG/WebP atau PDF yang valid."
       : "Pilih foto JPEG, PNG, atau WebP yang valid.",
     422,

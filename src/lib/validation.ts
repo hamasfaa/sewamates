@@ -76,6 +76,10 @@ export const uploadInput = z
       "item_photo",
       "payment_proof",
       "chat_image",
+      "handover_photo",
+      "dispute_evidence",
+      "payout_proof",
+      "cash_proof",
     ]),
     contentType: z.enum(["image/jpeg", "image/png", "image/webp", "application/pdf"]),
     size: z
@@ -86,8 +90,10 @@ export const uploadInput = z
   })
   .strict()
   .refine(
-    (v) => v.contentType !== "application/pdf" || v.purpose === "payment_proof",
-    "PDF hanya boleh dipakai sebagai bukti transfer.",
+    (v) =>
+      v.contentType !== "application/pdf" ||
+      ["payment_proof", "dispute_evidence", "payout_proof", "cash_proof"].includes(v.purpose),
+    "PDF hanya boleh dipakai sebagai bukti transfer atau bukti sengketa.",
   );
 const limits = LISTING_LIMITS;
 const money = (label: string, min: number, max: number) =>

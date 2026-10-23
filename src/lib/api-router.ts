@@ -40,8 +40,26 @@ import {
 } from "@/src/services/admin-service";
 import { processTelegramUpdate } from "@/src/services/telegram-service";
 import { expireLoginRequests } from "@/src/jobs/expire-login-requests";
+import {
+  closeReviewWindow,
+  noShowTimeouts,
+  overdueReturns,
+  releaseClaims,
+  staleStart,
+} from "@/src/jobs/handover-jobs";
+import { reminders, slaFlags } from "@/src/jobs/alert-jobs";
 import { cookies } from "next/headers";
 const uuid = (value: string) => z.uuid().parse(value);
+// Sprint 4 jobs, scheduled every minute by supabase/jobs.sql.
+const JOBS: Record<string, (db: ReturnType<typeof getDb>) => Promise<unknown>> = {
+  "stale-start": staleStart,
+  "close-review-window": closeReviewWindow,
+  "overdue-returns": overdueReturns,
+  "no-show-timeouts": noShowTimeouts,
+  "release-claims": releaseClaims,
+  reminders,
+  "sla-flags": slaFlags,
+};
 
 export const dispatch = endpoint(async (request) => {
   const url = new URL(request.url),
@@ -89,6 +107,8 @@ export const dispatch = endpoint(async (request) => {
     if (parts[2] === "expire-login-requests") return json(await expireLoginRequests(getDb()));
     if (parts[2] === "expire-requests") return json(await expireRentals(getDb(), "requests"));
     if (parts[2] === "expire-payments") return json(await expireRentals(getDb(), "payments"));
+    const job = JOBS[parts[2]];
+    if (job) return json(await job(getDb()));
     throw new AppError("NOT_FOUND", "Job tidak ditemukan.", 404);
   }
   if (path === "auth/telegram/start" && method === "POST") {

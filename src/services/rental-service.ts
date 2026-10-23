@@ -6,11 +6,13 @@ import {
   availabilityBlocks,
   items,
   messages,
+  noShowReports,
   payments,
   payoutAccounts,
   platformAccounts,
   rentalEvents,
   rentals,
+  rescheduleRequests,
   users,
   type Rental,
   type User,
@@ -24,6 +26,8 @@ import {
 } from "@/src/domain/rental-state-machine";
 import { rentalPeriod, withinPickupHours, wibDateKey } from "@/src/domain/availability";
 import { commission, firstFreeCode, paymentTotals } from "@/src/domain/pricing";
+import { phaseOf, RESCHEDULE_STATUSES } from "@/src/domain/handover";
+import { cancellationFee, cancellationTerms } from "@/src/domain/payout";
 import { rentalActionInput, rentalInput } from "@/src/lib/transaction-validation";
 import { assert } from "@/src/lib/errors";
 import { evidencePreview } from "@/src/lib/storage";
@@ -32,6 +36,9 @@ import { itemDetail } from "./item-service";
 import { getSettings } from "./settings-service";
 import { assertNotBlocked, ensureConversation, systemMessage } from "./chat-service";
 import { notify } from "./notification-service";
+import { settleRental } from "./settlement-service";
+import { giveStrike } from "./strike-service";
+import { rentalProgress } from "./rental-progress";
 
 export const periodSql = (start: Date, end: Date) =>
   sql`tstzrange(${start.toISOString()}::timestamptz,${end.toISOString()}::timestamptz,'[)')`;
@@ -87,6 +94,17 @@ export async function assertAvailable(
     409,
   );
 }
+// Cheap participant check before slow work such as downloading evidence.
+export async function participantRental(db: Executor, actor: User, id: string) {
+  const [rental] = await db.select().from(rentals).where(eq(rentals.id, id));
+  assert(
+    rental && [rental.ownerId, rental.renterId].includes(actor.id),
+    "NOT_FOUND",
+    "Transaksi tidak ditemukan.",
+    404,
+  );
+  return rental;
+}
 export async function lockRental(tx: Executor, id: string) {
   const [reference] = await tx
     .select({ itemId: rentals.itemId })
@@ -97,7 +115,7 @@ export async function lockRental(tx: Executor, id: string) {
   const [rental] = await tx.select().from(rentals).where(eq(rentals.id, id)).for("update");
   return rental;
 }
-type RentalPatch = Omit<Partial<typeof rentals.$inferInsert>, "blockPeriod"> & {
+export type RentalPatch = Omit<Partial<typeof rentals.$inferInsert>, "blockPeriod"> & {
   blockPeriod?: string | SQL;
 };
 export async function transitionRental(
@@ -119,6 +137,25 @@ export async function transitionRental(
     .set({ ...patch, status: to, version: rental.version + 1 })
     .where(eq(rentals.id, rental.id))
     .returning();
+  // Proposals and no-show reports only make sense in the status they were made for.
+  if (!RESCHEDULE_STATUSES.includes(to))
+    await tx
+      .update(rescheduleRequests)
+      .set({ status: "kedaluwarsa", respondedAt: new Date() })
+      .where(
+        and(eq(rescheduleRequests.rentalId, rental.id), eq(rescheduleRequests.status, "menunggu")),
+      );
+  const phase = phaseOf(to);
+  await tx
+    .update(noShowReports)
+    .set({ status: "gugur", resolvedAt: new Date() })
+    .where(
+      and(
+        eq(noShowReports.rentalId, rental.id),
+        eq(noShowReports.status, "menunggu"),
+        phase ? ne(noShowReports.phase, phase) : undefined,
+      ),
+    );
   await tx.insert(rentalEvents).values({
     rentalId: rental.id,
     fromStatus: rental.status,
@@ -384,21 +421,52 @@ export async function actOnRental(
       }
     } else {
       assert(
-        rental.status === "DIAJUKAN" ? renter : rental.status === "DISETUJUI",
+        rental.status === "DIAJUKAN" ? renter : ["DISETUJUI", "DIBAYAR"].includes(rental.status),
         "CANCEL_UNAVAILABLE",
-        "Pembatalan belum tersedia untuk status ini. Selama verifikasi pembayaran, tunggu keputusan admin.",
+        rental.status === "MENUNGGU_VERIFIKASI"
+          ? "Pembatalan belum tersedia selama verifikasi pembayaran. Tunggu keputusan admin."
+          : "Pembatalan tidak tersedia untuk status ini.",
         409,
       );
+      const terms = cancellationTerms(
+          rental.status,
+          owner ? "owner" : "renter",
+          rental.startAt,
+          now,
+          rental.rulesSnapshot,
+        ),
+        fee = terms.fee
+          ? cancellationFee(rental.rentTotal, rental.rulesSnapshot.cancellation_rate_bp)
+          : 0;
+      if (rental.status === "DIBAYAR") {
+        const [report] = await tx
+          .select({ id: noShowReports.id })
+          .from(noShowReports)
+          .where(and(eq(noShowReports.rentalId, rental.id), eq(noShowReports.status, "menunggu")))
+          .limit(1);
+        assert(
+          !report,
+          "NO_SHOW_PENDING",
+          "Laporan tidak hadir sedang berjalan. Tunggu hasilnya atau ajukan bantahan.",
+          409,
+        );
+        assert(
+          input.fee === fee,
+          "CANCEL_TERMS_CHANGED",
+          "Konsekuensi pembatalan berubah. Periksa rinciannya lagi sebelum membatalkan.",
+          409,
+        );
+      }
       next = await transitionRental(
         tx,
         rental,
         "DIBATALKAN",
         { id: actor.id, type: "user" },
-        { reason: input.reason || null },
+        { reason: input.reason || null, cancellationFee: fee, strike: terms.strike },
         { cancelledBy: actor.id, cancelReason: input.reason },
       );
-      const { refundAcceptedPayments } = await import("./payment-service");
-      await refundAcceptedPayments(tx, next);
+      await settleRental(tx, next, terms.fee ? "biaya_batal" : "refund_penuh");
+      if (terms.strike) await giveStrike(tx, rental.ownerId, "batal_setelah_dibayar", rental);
     }
     await notify(
       tx,
@@ -486,6 +554,7 @@ export async function rentalDetail(db: Database, actor: User, id: string) {
     }
   }
   return {
+    ...(await rentalProgress(db, rental, { id: actor.id, staff })),
     rental,
     history,
     people,

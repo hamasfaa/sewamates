@@ -1,8 +1,21 @@
 import { Pool } from "pg";
 import { readdir, readFile } from "node:fs/promises";
-import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { createCipheriv, createHash, randomBytes, randomUUID } from "node:crypto";
 import { DEFAULT_SETTINGS } from "../../src/domain/settings";
-import { e2eDatabaseUrl } from "./transactions-env";
+import { e2eDatabaseUrl, testAccountKey } from "./transactions-env";
+
+// Same v1 AES-256-GCM format as src/lib/crypto.ts, so the payout screen can show the number.
+function encryptAccount(value: string) {
+  const iv = randomBytes(12),
+    cipher = createCipheriv("aes-256-gcm", Buffer.from(testAccountKey, "base64"), iv);
+  const body = Buffer.concat([cipher.update(value, "utf8"), cipher.final()]);
+  return [
+    "v1",
+    iv.toString("base64url"),
+    cipher.getAuthTag().toString("base64url"),
+    body.toString("base64url"),
+  ].join(".");
+}
 
 export async function transactionFixtures() {
   const pool = new Pool({ connectionString: e2eDatabaseUrl(), connectionTimeoutMillis: 5000 });
@@ -41,8 +54,8 @@ export async function transactionFixtures() {
       );
       if (index < 2)
         await pool.query(
-          "INSERT INTO payout_accounts(user_id,type,provider,account_no_enc,account_name) VALUES($1,'ewallet','GoPay','v1.local-only', $2)",
-          [id, name],
+          "INSERT INTO payout_accounts(user_id,type,provider,account_no_enc,account_name) VALUES($1,'ewallet','GoPay',$2,$3)",
+          [id, encryptAccount(`08120000000${index}`), name],
         );
       people.push({ id, token });
     }

@@ -1,94 +1,38 @@
 "use client";
 import Link from "next/link";
-import { useState, useEffect, useRef } from "react";
-import type { rentalDetail, rentalList } from "@/src/services/rental-service";
+import { useState, useRef } from "react";
+import type { rentalList } from "@/src/services/rental-service";
 import { useClock, useLiveApi, type Wire } from "@/src/lib/live-api";
 import { api } from "@/src/lib/client-api";
-import { RENTAL_LABELS, type RentalStatus } from "@/src/domain/rental-state-machine";
+import { uploadPrivateFile, validatePrivateFile } from "@/src/lib/private-upload";
 import { cn, dateWib, rupiah } from "@/src/lib/utils";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { Input } from "./ui/input";
 import { StatusChip } from "./ui/status-chip";
 import { CostSummary } from "./cost-summary";
+import {
+  CopyButton,
+  Countdown,
+  RentalStatusChip,
+  RentalStepper,
+  RentalTimeline,
+  type RentalDetail as Detail,
+} from "./rental-ui";
+import { HandoverPanel } from "./handover-panel";
+import {
+  CancelPanel,
+  CheckPanel,
+  DisputePanel,
+  NoShowPanel,
+  PayoutList,
+  PhotoGallery,
+  ProblemPanel,
+  ReschedulePanel,
+} from "./rental-actions";
 
-type Detail = Wire<Awaited<ReturnType<typeof rentalDetail>>>;
-export function CopyButton({ value, label = "Salin" }: { value: string; label?: string }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <Button
-      type="button"
-      size="sm"
-      variant="outline"
-      onClick={() =>
-        void navigator.clipboard
-          ?.writeText(value)
-          .then(() => setCopied(true))
-          .catch(() => setCopied(false))
-      }
-    >
-      {copied ? "Tersalin" : label}
-    </Button>
-  );
-}
-export function RentalStatusChip({ status }: { status: RentalStatus }) {
-  return (
-    <StatusChip
-      tone={
-        status === "DIBAYAR"
-          ? "success"
-          : ["DISETUJUI", "MENUNGGU_VERIFIKASI"].includes(status)
-            ? "warning"
-            : "neutral"
-      }
-    >
-      {RENTAL_LABELS[status]}
-    </StatusChip>
-  );
-}
-export function Countdown({ target, label }: { target: string; label: string }) {
-  const [now, setNow] = useState(0);
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-  const seconds = Math.max(0, Math.ceil((Date.parse(target) - now) / 1000));
-  return (
-    <p className="mt-3 text-sm text-muted-foreground">
-      {label}:{" "}
-      <strong className="tabular text-foreground">
-        {now
-          ? seconds
-            ? `${Math.floor(seconds / 3600)}j ${Math.floor((seconds % 3600) / 60)}m ${seconds % 60}d`
-            : "Waktu berakhir"
-          : dateWib(target)}
-      </strong>
-    </p>
-  );
-}
-function validatePrivateFile(file: File, purpose: "payment_proof" | "chat_image") {
-  const allowed =
-    purpose === "payment_proof"
-      ? ["image/jpeg", "image/png", "image/webp", "application/pdf"]
-      : ["image/jpeg", "image/png", "image/webp"];
-  if (!allowed.includes(file.type) || file.size === 0 || file.size > 5 * 1024 * 1024)
-    throw new Error("Pilih file yang didukung dengan ukuran maksimal 5 MB.");
-}
-export async function uploadPrivateFile(file: File, purpose: "payment_proof" | "chat_image") {
-  validatePrivateFile(file, purpose);
-  const ticket = await api<{ path: string; signedUrl: string }>("/api/uploads/sign", {
-    method: "POST",
-    body: JSON.stringify({ purpose, contentType: file.type, size: file.size }),
-  });
-  const uploaded = await fetch(ticket.signedUrl, {
-    method: "PUT",
-    headers: { "Content-Type": file.type },
-    body: file,
-  });
-  if (!uploaded.ok) throw new Error("Unggahan belum berhasil. Periksa koneksi lalu coba lagi.");
-  return ticket.path;
-}
 export function TransactionsView({ selectedId }: { selectedId?: string }) {
+  const now = useClock();
   const [role, setRole] = useState("renter"),
     [state, setState] = useState("aktif"),
     query = useLiveApi<Wire<Awaited<ReturnType<typeof rentalList>>>>(
@@ -166,7 +110,12 @@ export function TransactionsView({ selectedId }: { selectedId?: string }) {
                   <span className="text-xs text-muted-foreground">{row.publicCode}</span>
                   <h2 className="mt-1 text-base break-words">{String(row.title)}</h2>
                   <div className="mt-2">
-                    <RentalStatusChip status={row.status} />
+                    <RentalStatusChip
+                      status={row.status}
+                      late={Boolean(
+                        now && row.status === "BERJALAN" && Date.parse(row.dueAt) < now,
+                      )}
+                    />
                   </div>
                   <p className="mt-2 text-xs text-muted-foreground">{dateWib(row.startAt)}</p>
                 </Link>
@@ -421,11 +370,11 @@ function RentalPanel({ id }: { id: string }) {
     [reason, setReason] = useState(""),
     [busy, setBusy] = useState(""),
     [error, setError] = useState("");
-  async function act(action: "approve" | "reject" | "cancel") {
+  async function act(action: "approve" | "reject") {
     if (!query.data) return;
     if (
       !window.confirm(
-        `${action === "approve" ? "Setujui" : action === "reject" ? "Tolak" : "Batalkan"} transaksi ${query.data.rental.publicCode}?`,
+        `${action === "approve" ? "Setujui" : "Tolak"} transaksi ${query.data.rental.publicCode}?`,
       )
     )
       return;
@@ -458,13 +407,16 @@ function RentalPanel({ id }: { id: string }) {
   const data = query.data,
     r = data.rental,
     owner = data.viewer.isOwner,
-    renter = data.viewer.isRenter;
+    renter = data.viewer.isRenter,
+    refresh = query.refresh;
   const pending = data.payments.filter((p) => p.status === "menunggu"),
     canUpload =
       renter &&
       ["DISETUJUI", "MENUNGGU_VERIFIKASI"].includes(r.status) &&
       r.payBy &&
-      Date.parse(r.payBy) > now;
+      Date.parse(r.payBy) > now,
+    late = Boolean(now && r.status === "BERJALAN" && Date.parse(r.dueAt) < now),
+    refunded = data.payouts.length > 0 && data.payouts.every((task) => task.status === "selesai");
   return (
     <div className="space-y-5">
       <Link className="text-sm font-bold text-primary lg:hidden" href="/transaksi">
@@ -476,8 +428,17 @@ function RentalPanel({ id }: { id: string }) {
             <p className="text-sm text-muted-foreground">{r.publicCode}</p>
             <h2 className="mt-1 text-2xl break-words">{String(r.listingSnapshot.title)}</h2>
           </div>
-          <RentalStatusChip status={r.status} />
+          <div className="flex flex-wrap gap-2">
+            <RentalStatusChip status={r.status} late={late} />
+            {["KADALUARSA", "DIBATALKAN", "DITOLAK"].includes(r.status) &&
+              data.payouts.length > 0 && (
+                <StatusChip tone={refunded ? "success" : "warning"}>
+                  {refunded ? "Refund selesai" : "Refund diproses"}
+                </StatusChip>
+              )}
+          </div>
         </div>
+        <RentalStepper status={r.status} before={r.statusBeforeDispute} />
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <CopyButton value={r.publicCode} label="Salin kode transaksi" />
           <Button asChild size="sm" variant="outline">
@@ -524,8 +485,9 @@ function RentalPanel({ id }: { id: string }) {
         </div>
         {["KADALUARSA", "DIBATALKAN", "DITOLAK"].includes(r.status) && r.amountReceived > 0 && (
           <p className="notice mt-4">
-            Dana masuk {rupiah(r.amountReceived)} sudah dicatat sebagai kewajiban refund ke
-            rekening/e-wallet penyewa. Hubungi pengelola untuk proses pengembalian.
+            Dana masuk {rupiah(r.amountReceived)} dibagi sesuai aturan pembatalan dan ditransfer
+            admin ke rekening/e-wallet terdaftar. Status transfer ada di bagian Pencairan &amp;
+            refund.
           </p>
         )}
         {r.status === "DIAJUKAN" && <Countdown target={r.respondBy} label="Batas tanggapan" />}
@@ -538,6 +500,26 @@ function RentalPanel({ id }: { id: string }) {
             Pembayaran sudah diterima platform. Siapkan serah terima sesuai jadwal.
           </p>
         )}
+        {r.status === "BERJALAN" &&
+          (late ? (
+            <p className="notice notice-error mt-5" role="status">
+              Sudah lewat jatuh tempo. Denda {r.rulesSnapshot.late_rate_bp / 100}% harga per hari
+              berlaku untuk setiap 24 jam setelah toleransi {r.rulesSnapshot.late_grace_hours} jam.
+            </p>
+          ) : (
+            <Countdown target={r.dueAt} label="Batas pengembalian" />
+          ))}
+        {r.status === "PENCAIRAN_DIPROSES" && (
+          <p className="notice mt-5">
+            Pengembalian selesai. Admin sedang mentransfer pencairan dan refund; bukti transfer
+            muncul di bagian Pencairan &amp; refund.
+          </p>
+        )}
+        {r.status === "SENGKETA" && (
+          <p className="notice notice-error mt-5">
+            Transaksi dalam mediasi admin. Dana tetap ditahan sampai ada putusan.
+          </p>
+        )}
         {r.status === "MENUNGGU_VERIFIKASI" && (
           <p className="notice mt-5">
             Bukti sedang diperiksa admin. Pembatalan tersedia setelah status pembayaran jelas. Jam
@@ -545,9 +527,7 @@ function RentalPanel({ id }: { id: string }) {
             {String(r.rulesSnapshot.admin_close_hour).padStart(2, "0")}.00 WIB.
           </p>
         )}
-        {((owner && r.status === "DIAJUKAN") ||
-          (renter && r.status === "DIAJUKAN") ||
-          ((renter || owner) && r.status === "DISETUJUI")) && (
+        {owner && r.status === "DIAJUKAN" && (
           <div className="mt-5 border-t border-border pt-5">
             <label className="field-label" htmlFor="decision-reason">
               Catatan / alasan (opsional)
@@ -559,27 +539,24 @@ function RentalPanel({ id }: { id: string }) {
               onChange={(e) => setReason(e.target.value)}
             />
             <div className="mt-3 flex flex-wrap gap-2">
-              {owner && r.status === "DIAJUKAN" ? (
-                <>
-                  <Button disabled={!!busy || !data.canApprove} onClick={() => void act("approve")}>
-                    Terima pengajuan
-                  </Button>
-                  <Button variant="outline" disabled={!!busy} onClick={() => void act("reject")}>
-                    Tolak pengajuan
-                  </Button>
-                  {!data.canApprove && (
-                    <p className="help w-full">
-                      Persetujuan tidak tersedia karena jadwal berbenturan atau batas tanggapan
-                      berakhir.
-                    </p>
-                  )}
-                </>
-              ) : (
-                <Button variant="outline" disabled={!!busy} onClick={() => void act("cancel")}>
-                  Batalkan pengajuan
-                </Button>
+              <Button disabled={!!busy || !data.canApprove} onClick={() => void act("approve")}>
+                Terima pengajuan
+              </Button>
+              <Button variant="outline" disabled={!!busy} onClick={() => void act("reject")}>
+                Tolak pengajuan
+              </Button>
+              {!data.canApprove && (
+                <p className="help w-full">
+                  Persetujuan tidak tersedia karena jadwal berbenturan atau batas tanggapan
+                  berakhir.
+                </p>
               )}
             </div>
+          </div>
+        )}
+        {data.actions.canCancel && (
+          <div className="mt-5 flex flex-wrap gap-2 border-t border-border pt-5">
+            <CancelPanel data={data} refresh={refresh} />
           </div>
         )}
         {(error || query.error) && (
@@ -588,6 +565,16 @@ function RentalPanel({ id }: { id: string }) {
           </p>
         )}
       </Card>
+      {(owner || renter) && (
+        <>
+          <NoShowPanel data={data} refresh={refresh} />
+          {data.actions.phase && <HandoverPanel data={data} refresh={refresh} />}
+          <CheckPanel data={data} refresh={refresh} />
+          <ProblemPanel data={data} refresh={refresh} />
+          <ReschedulePanel data={data} refresh={refresh} />
+        </>
+      )}
+      <DisputePanel data={data} refresh={refresh} />
       <section
         aria-label="Pembayaran"
         className={cn(
@@ -638,19 +625,11 @@ function RentalPanel({ id }: { id: string }) {
           </ul>
         </Card>
       )}
+      <PhotoGallery data={data} />
+      <PayoutList data={data} />
       <Card className="min-w-0">
         <h3 className="text-xl">Riwayat transaksi</h3>
-        <ol className="mt-4 space-y-4">
-          {data.history.map((event) => (
-            <li key={event.id} className="border-l-2 border-border pl-4 text-sm">
-              <p className="font-bold">{RENTAL_LABELS[event.toStatus]}</p>
-              <p className="mt-1 text-xs text-muted-foreground">{dateWib(event.createdAt)}</p>
-              {typeof event.meta.reason === "string" && (
-                <p className="mt-1 break-words">{event.meta.reason}</p>
-              )}
-            </li>
-          ))}
-        </ol>
+        <RentalTimeline data={data} />
       </Card>
     </div>
   );

@@ -6,7 +6,7 @@ import { api } from "@/src/lib/client-api";
 import { useLiveApi, type Wire } from "@/src/lib/live-api";
 import type { conversationList, conversationMessages } from "@/src/services/chat-service";
 import { cn, dateWib } from "@/src/lib/utils";
-import { uploadPrivateFile } from "./transactions-view";
+import { uploadPrivateFile } from "@/src/lib/private-upload";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
