@@ -161,35 +161,6 @@ export async function consumeUpload(
   if (purpose === "avatar") return storage().from(bucket).getPublicUrl(path).data.publicUrl;
   return path;
 }
-// Canvas re-encoding drops EXIF/XMP; reject uploads that bypassed it (04 §6.2).
-export function hasEmbeddedMetadata(bytes: Uint8Array) {
-  const view = Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  if (view[0] === 0xff && view[1] === 0xd8) {
-    for (let i = 2; i + 4 <= view.length && view[i] === 0xff;) {
-      const marker = view[i + 1];
-      if (marker === 0xda || marker === 0xd9) return false;
-      if (marker === 0xe1) return true; // APP1 carries Exif or XMP.
-      i += 2 + view.readUInt16BE(i + 2);
-    }
-    return false;
-  }
-  if (view.subarray(0, 4).toString("latin1") === "RIFF") {
-    for (let i = 12; i + 8 <= view.length;) {
-      const type = view.subarray(i, i + 4).toString("latin1"),
-        size = view.readUInt32LE(i + 4);
-      if (type === "EXIF" || type === "XMP ") return true;
-      i += 8 + size + (size % 2);
-    }
-    return false;
-  }
-  for (let i = 8; i + 8 <= view.length;) {
-    const type = view.subarray(i + 4, i + 8).toString("latin1");
-    if (["eXIf", "iTXt", "tEXt", "zTXt"].includes(type)) return true;
-    if (type === "IEND") return false;
-    i += 12 + view.readUInt32BE(i);
-  }
-  return false;
-}
 const ITEM_PHOTO = /^[0-9a-f-]{36}\/item_photo\/[0-9a-f-]{36}\.(jpg|png|webp)$/;
 export function assertItemPhotoPaths(userId: string, paths: string[]) {
   assert(
@@ -214,12 +185,6 @@ export async function verifyItemPhotos(paths: string[]) {
       );
       const bytes = new Uint8Array(await data.arrayBuffer());
       assert(isImage(bytes), "INVALID_IMAGE", "File harus berupa foto JPEG, PNG, atau WebP.", 422);
-      assert(
-        !hasEmbeddedMetadata(bytes),
-        "PHOTO_METADATA",
-        "Foto masih membawa metadata seperti lokasi. Unggah ulang lewat SewaMates.",
-        422,
-      );
     }),
   );
 }

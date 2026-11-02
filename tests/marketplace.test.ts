@@ -232,7 +232,7 @@ describe("Membuat listing (F4, A-3.2)", () => {
       createItem(db, actor, await draft(actor.id, { deposit: 200_000 })),
     ).resolves.toBeTruthy();
   });
-  it("menolak foto milik orang lain, belum terunggah, atau masih bermetadata", async () => {
+  it("menolak foto milik orang lain atau belum terunggah", async () => {
     const actor = await owner(),
       other = await owner();
     await expect(
@@ -241,13 +241,6 @@ describe("Membuat listing (F4, A-3.2)", () => {
     mocks.download.mockResolvedValueOnce({ data: null, error: new Error("not found") });
     await expect(createItem(db, actor, await draft(actor.id))).rejects.toMatchObject({
       code: "UPLOAD_MISSING",
-    });
-    mocks.download.mockResolvedValueOnce({
-      data: new Blob([new Uint8Array([255, 216, 255, 225, 0, 8, 69, 120, 105, 102, 0, 0])]),
-      error: null,
-    });
-    await expect(createItem(db, actor, await draft(actor.id))).rejects.toMatchObject({
-      code: "PHOTO_METADATA",
     });
     expect(await db.select().from(s.items)).toHaveLength(0);
   });

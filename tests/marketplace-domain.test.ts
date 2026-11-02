@@ -12,7 +12,6 @@ import {
   wibDayRange,
 } from "@/src/domain/availability";
 import { defaultSort, prefixQuery, searchTerms } from "@/src/domain/search";
-import { hasEmbeddedMetadata } from "@/src/lib/storage";
 import { itemInput, searchInput } from "@/src/lib/validation";
 import { rupiah } from "@/src/lib/utils";
 
@@ -172,64 +171,5 @@ describe("Pencarian dan input", () => {
       { extra: true },
     ])
       expect(itemInput.safeParse({ ...valid, ...patch }).success).toBe(false);
-  });
-});
-
-describe("Metadata foto publik", () => {
-  const jpeg = (segments: number[][]) =>
-    new Uint8Array([0xff, 0xd8, ...segments.flat(), 0xff, 0xda, 0, 2]);
-  const segment = (marker: number, payload: number[]) => [
-    0xff,
-    marker,
-    0,
-    payload.length + 2,
-    ...payload,
-  ];
-  const chunk = (type: string, size: number) => [
-    ...Buffer.from(type, "latin1"),
-    size,
-    0,
-    0,
-    0,
-    ...Array(size).fill(0),
-  ];
-  it("menolak JPEG dengan APP1 (Exif/XMP) dan menerima JFIF dari canvas", () => {
-    expect(hasEmbeddedMetadata(jpeg([segment(0xe0, [74, 70, 73, 70, 0])]))).toBe(false);
-    expect(hasEmbeddedMetadata(jpeg([segment(0xe1, [69, 120, 105, 102, 0, 0])]))).toBe(true);
-  });
-  it("menolak chunk EXIF/XMP pada WebP dan teks pada PNG", () => {
-    const webp = (chunks: number[][]) =>
-      new Uint8Array([
-        ...Buffer.from("RIFF"),
-        0,
-        0,
-        0,
-        0,
-        ...Buffer.from("WEBP"),
-        ...chunks.flat(),
-      ]);
-    expect(hasEmbeddedMetadata(webp([chunk("VP8 ", 4)]))).toBe(false);
-    expect(hasEmbeddedMetadata(webp([chunk("VP8X", 10), chunk("EXIF", 6)]))).toBe(true);
-    const png = (type: string) =>
-      new Uint8Array([
-        0x89,
-        ...Buffer.from("PNG\r\n\x1a\n", "latin1"),
-        0,
-        0,
-        0,
-        0,
-        ...Buffer.from(type, "latin1"),
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        ...Buffer.from("IEND", "latin1"),
-      ]);
-    expect(hasEmbeddedMetadata(png("IDAT"))).toBe(false);
-    expect(hasEmbeddedMetadata(png("tEXt"))).toBe(true);
   });
 });
